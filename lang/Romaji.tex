@@ -1,0 +1,521 @@
+\documentclass[spanish]{article}
+\usepackage{amsmath}
+
+% package for the sweet spanish accents and ñ (olé)
+\usepackage[utf8]{inputenc}
+\usepackage{babel}
+% package to include graphics and images
+\usepackage{graphicx}
+% package to force the "order" of the floats
+\usepackage{float}
+\usepackage{color}
+%package for easier quotations
+\usepackage{dirtytalk}
+\usepackage{hyperref}
+%package to insert source code
+\usepackage{listings}
+\usepackage[margin=0.9in]{geometry}
+\graphicspath{ {images/} }
+
+\inputencoding{utf8}
+\hypersetup{%
+  pdfborder = {0 0 0}
+}
+\lstdefinelanguage{Romaji}
+{
+    morekeywords={
+        seisu, naga, nashi, baito, furootingu, daburu, mojiretsu, kyo, shinri,
+        omo, kansu, koru, shi, kisu, tsutaeru, uketoru, to, ta, naka
+    },
+    sensitive=true
+    morecomment=[l]{\#},
+    morestring=[b]"
+}
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    showspaces=false,
+    showstringspaces=false,
+    captionpos=b,
+    frame=single,
+    commentstyle=\color{green},
+    keywordstyle=\color{blue}\bf,
+    tabsize=4
+}
+
+\begin{document}
+\begin{titlepage}
+  \centering
+  \begin{figure}
+    \centering
+    \def\svgwidth{0.20\columnwidth}
+    \input{images/ULPGC.pdf_tex}
+  \end{figure}
+  {\scshape\Large Universidad de Las Palmas de Gran Canaria \par}
+  \vspace{1cm}
+  {\scshape\large Procesadores de Lenguajes \par}
+  \vspace{2.5cm}
+  {\huge\bfseries Lenguaje Romaji \par}
+  \vspace{1.5cm}
+  {\Large\itshape por Diego Sáinz de Medrano\par}
+
+  \vfill
+
+  % Bottom of the page
+  {\large \today\par}
+\end{titlepage}
+
+\pagenumbering{arabic}
+
+\tableofcontents
+
+\newpage
+
+\section{Introducción}
+
+El lenguaje Romaji está pensado para ser una suerte lenguaje C modificado y traducido al japonés. En su primer diseño, que es presentado en este documento, se quiere maximizar la utilidad del lenguaje al tiempo que se optimiza para la compilación en código Q.
+
+\section{Tipos de datos}
+
+La lista de los tipos definidos en el lenguaje Romaji, su tipo equivalente en formato similar a C++ y el tamaño en bytes que ocupa un literal de dicho tipo en memoria.\\
+\begin{center}
+  \begin{tabular}{ | l | l | c | }
+    \hline
+    seisu       & int          & 2   \\ \hline
+    naga seisu  & long int     & 4   \\ \hline
+    nashi seisu & unsigned int & 2   \\ \hline
+    baito       & char         & 1   \\ \hline
+    mojiretsu   & string       & 1+  \\ \hline
+    furotingu   & float        & 4   \\ \hline
+    daburu      & double       & 8   \\
+    \hline
+  \end{tabular}
+\end{center}
+En el lenguaje Romaji se pueden declarar variables de todos estos tipos. A continuación se especifican las asignaciones permitidas sobre cada uno de ellos.\\
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l | l |}
+      \hline
+      & Asignación\\ \hline
+      \color{green}{V} & \texttt{seisu i <- 32767 (-32767)} \\ \hline
+      \color{green}{V} & \texttt{seisu i <- 0xFFFF (0x0000)} \\ \hline
+      \hline
+      \color{red}{X} & \texttt{seisu i <- 32768 (-32768)} \\ \hline
+      \color{red}{X} & \texttt{seisu i <- 0xFEFEF} \\ \hline
+      \color{red}{X} & \texttt{seisu i <- 0xAAA} \\ \hline
+      \color{red}{X} & \texttt{seisu i <- i} \\ \hline
+      \color{red}{X} & \texttt{seisu i <- 'i'} \\
+      \hline
+    \end{tabular}
+
+  \end{minipage}%
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l |}
+      \hline
+      & Asignación\\ \hline
+      \color{green}{V} & \texttt{naga seisu l <- 65535 (-65535)}           \\ \hline
+      \color{green}{V} & \texttt{naga seisu l <- 0xFFFFFFFF (0x00000000)}  \\ \hline
+      \hline
+      \color{red}{X} & \texttt{naga seisu l <- 65536 (-65536)}           \\ \hline
+      \color{red}{X} & \texttt{naga seisu l <- 0xFFFFFFFFF}              \\ \hline
+      \color{red}{X} & \texttt{naga seisu l <- 0xFFFFFFF}                \\
+      \hline
+    \end{tabular}
+
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l |}
+        \hline
+        & Asignación\\ \hline
+        \color{green}{V} & \texttt{nashi seisu u <- 65535 (0)}         \\ \hline
+        \color{green}{V} & \texttt{nashi seisu u <- 0xFFFF (0x0000)}   \\ \hline
+        \hline
+        \color{red}{X} & \texttt{nashi seisu u <- 65536 (-1)}        \\ \hline
+        \color{red}{X} & \texttt{nashi seisu u <- 0xFFFFF}           \\ \hline
+        \color{red}{X} & \texttt{nashi seisu u <- 0xFFF}             \\
+        \hline
+    \end{tabular}
+
+  \end{minipage}%
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l |}
+        \hline
+        & Asignación\\ \hline
+        \color{green}{V} & \texttt{baito b <- 255 (0)}          \\ \hline
+        \color{green}{V} & \texttt{baito b <- 0xFF (0x00)}      \\ \hline
+        \color{green}{V} & \texttt{baito b <- 'i'}              \\ \hline
+        \hline
+        \color{red}{X} & \texttt{baito b <- 256 (-1)}         \\ \hline
+        \color{red}{X} & \texttt{baito b <- 0xFEF}            \\ \hline
+        \color{red}{X} & \texttt{baito b <- 0xA}              \\ \hline
+        \color{red}{X} & \texttt{baito b <- i}                \\ \hline
+        \color{red}{X} & \texttt{baito b <- \say{i}}          \\ 
+        \hline
+    \end{tabular}
+
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l |}
+        \hline
+        & Asignación\\ \hline
+        \color{green}{V} & \texttt{furotingu f <- 1.0 (-1.0)}  \\ \hline
+        \color{green}{V} & \texttt{furotingu f <- 1 (-1)}      \\ \hline
+        \hline
+        \color{red}{X} & \texttt{furotingu f <- 0xFFFF}      \\ \hline
+        \color{red}{X} & \texttt{furotingu f <- 'a'}         \\ \hline
+        \color{red}{X} & \texttt{furotingu f <- \say{a}}     \\
+        \hline
+    \end{tabular}
+
+  \end{minipage}%
+  \begin{minipage}{.5\textwidth}
+    \centering
+
+    \begin{tabular}{ | c | l |}
+        \hline
+        & Asignación\\ \hline
+        \color{green}{V} & \texttt{daburu d <- 1.0 (-1.0)}  \\ \hline
+        \color{green}{V} & \texttt{daburu d <- 1 (-1)}      \\ \hline
+        \hline
+        \color{red}{X} & \texttt{daburu d <- 0xFFFFFFFF}  \\ \hline
+        \color{red}{X} & \texttt{daburu d <- 'a'}         \\ \hline
+        \color{red}{X} & \texttt{daburu d <- \say{a}}     \\
+        \hline
+    \end{tabular}
+
+  \end{minipage}
+\end{figure}
+
+\begin{center}
+  \begin{tabular}{ | c | l |}
+    \hline
+    & Asignación\\ \hline
+    \color{green}{V} & \texttt{mojiretsu i <- \say{A string composed of ASCII characters.}} \\ \hline
+    \color{green}{V} & \texttt{mojiretsu i <- \say{}}                                       \\ \hline
+    \hline
+    \color{red}{X} & \texttt{mojiretsu i <- 1234}                        \\ \hline
+    \color{red}{X} & \texttt{mojiretsu i <- string\_without\_quotations} \\ \hline
+    \color{red}{X} & \texttt{mojiretsu i <- 'string\_with\_single\_quotations'} \\
+    \hline
+  \end{tabular}
+\end{center}
+
+Dentro de las ristras (\texttt{mojiretsu}) se aceptan caracteres ASCII, con la excepción del caracter nulo (\texttt{'\\0'} o NULL en la tabla ASCII). La aparición del caracter nulo señala el final de la cadena, como en C, por lo que no debe incluirse en la cadena. Se permite el uso de los códigos de escape especificados para C (ver \color{blue}{\href{https://www-s.acm.illinois.edu/webmonkeys/book/c_guide/1.1.html}{referencia}}\color{black}).\\
+
+Además, están definidos dos tipos \say{especiales}, en el sentido de que no están pensados para ser declarados ni que se les asigne ningún valor, sino que se utilizan como medios de control para los retornos de las funciones y las operaciones lógicas.\\
+
+\begin{center}
+  \begin{tabular}{ | l | l | }
+    \hline
+    shinri      & boolean \\ \hline
+    kyo         & void    \\
+    \hline
+  \end{tabular}
+\end{center}
+El tipo \texttt{shinri} tiene dos valores, \texttt{shin} (equivalente a verdadero) y \texttt{nise} (equivalente a falso), mientras que el tipo \texttt{kyo} no toma ningún valor, sirviendo para especificar que las funciones no necesitan retornar nada al finalizar.
+
+\section{Estructuras básicas}
+\subsection{Operaciones aritméticas}
+\label{sec:operaciones-aritmeticas}
+
+Las operaciones aritméticas en Romaji siguen el modelo de notación prefija.\\
+\begin{center}
+  \texttt{seisu i <- + 1 2}
+\end{center}
+
+En este sistema, las operaciones se describen primero con el operador, en este caso \texttt{+}, seguida de los literales, que se procesan en orden de aparición. Encadenar operaciones se realiza de la siguiente manera:
+\begin{center}
+  \texttt{(1 + 2) * ((3 - 1) / 4)}\\
+  se expresaría\\
+  \texttt{*  + 1 2  /  - 3 1  4}
+\end{center}
+
+Las operaciones aritméticas sólo pueden aplicarse a literales o variables de los tipos numéricos. Salvo casos especiales, las operaciones aritméticas deben recibir como argumentos tipos numéricos iguales y devolverán el mismo tipo numérico, o compatible*. El mismo operador es válido para cualquiera de los diferentes tipos.
+
+\text{*} Los tipos compatibles quieren decir lo siguiente: existe una \say{jerarquía} de tipos, en el sentido de que unos tipos pueden ser contenidos en otros. Esto significa que si en una operación aparecen dos tipos compatibles diferentes, el resultado será del tipo \say{mayor}, haciendo el equivalente de un \say{casting} en C del tipo \say{menor} al \say{mayor} para realizar la operación. Ejemplo:\\
+
+\texttt{daburu d <- * 2 0.55}\\
+
+Sucederá que la multiplicación sea con los operandos 2.0 y 0.55, tratándolos ambos como \texttt{daburu}, y el resultado será de ese tipo también. La \say{jerarquía} mencionada sería la siguiente:\\
+
+\begin{lstlisting}
+                 / < naga seisu < daburu
+  baito < seisu {
+                 \ < nashi seisu < furotingu < daburu
+\end{lstlisting}
+
+\newpage
+Los operadores binarios definidos son:
+\begin{itemize}
+  \item{ \texttt{\textbf{ + }}\hspace{20pt} suma. }
+  \item{ \texttt{\textbf{ - }}\hspace{20pt} resta. }
+  \item{ \texttt{\textbf{ * }}\hspace{20pt} multiplicación. }
+  \item{ \texttt{\textbf{ / }}\hspace{20pt} división. }
+  \item{ \texttt{\textbf{ \% }}\hspace{20pt} módulo. }
+  \item{ \texttt{\textbf{ = }}\hspace{20pt} igualdad*. }
+  \item{ \texttt{\textbf{ < }}\hspace{20pt} mayor que*. }
+  \item{ \texttt{\textbf{ > }}\hspace{20pt} menor que*. }
+  \item{ \texttt{\textbf{ <= / >= }}\hspace{20pt} mayor/menor o igual que*. }
+  \item{ \texttt{\textbf{ | }}\hspace{20pt} o lógico**. }
+  \item{ \texttt{\textbf{ \& }}\hspace{20pt} y lógico**. }
+\end{itemize}
+\text{*}Los operadores de comparación devuelven un valor del tipo \texttt{shinri}.\\
+\text{**}Estos operandos toman como operandos dos expresiones que devuelvan tipo \texttt{shinri}, ya sea un literal o una operación, y devuelven:\\
+
+\begin{tabular}{ | l | c | c | }
+  \hline
+  & \texttt{ | } & \texttt{ \& } \\ \hline
+  shin & Una o las dos expresiones son ciertas & Las dos expresiones son ciertas \\ \hline
+  nise & Las dos expresiones son falsas & Una o las dos expresiones son falsas \\
+  \hline
+\end{tabular}
+
+\hspace{0pt}\\
+Los unarios:
+\begin{itemize}
+  \item{ \texttt{\textbf{ ++ }} incremento. }
+  \item{ \texttt{\textbf{ -- }} decremento. }
+  \item{ \texttt{\textbf{ ! }} negación lógica*. }
+\end{itemize}
+Estos operadores se utilizan de forma similar a los otros, escribiendo primero el operador y posteriormente el operando: \texttt{ ++ 1 }. Estas operaciones pueden aplicarse a todos los datos numéricos (incluyendo los de coma flotante) y devuelven el valor del operando incrementado o decrementado en una unidad.\\
+\hspace{0pt}\\
+\text{*}El operando negación sólo toma como operando una expresión que devuelva tipo \texttt{shinri}, ya sea un literal o una operación, y devuelve el opuesto del resultado de la misma.
+
+\subsection{Estructura principal}
+\label{sec:estructura-principal}
+
+Los programas escritos en Romaji siguen la siguiente estructura básica:
+\begin{lstlisting}[language=Romaji]
+    omo:[ret. type] <- [[type]:[arg1 name] [...] [type]:[argN name]]
+    {
+        [code]
+        [...]
+        kisu [result] | shi
+    }
+\end{lstlisting}
+
+La palabra \texttt{omo} es el identificador de la función principal, el punto de entrada del programa.
+La palabra seguida después de los dos puntos es el tipo de dato que retorna el programa al terminar, y se permite cualquier tipo de dato exceptuando \texttt{shinri}.
+La flecha indica el comienzo de la declaración de los argumentos que recibe el programa al ser ejecutado (se especifica más en los argumentos en la sección~\ref{sec:funciones}).\\
+
+El código (\texttt{[code]}) del programa debe estar rodeado de llaves, ya sean en la misma línea o en una nueva. En el código pueden aparecer alguna o ninguna de las siguientes expresiones, sin importar el orden:
+\begin{itemize}
+  \item{declaración de variable}
+  \item{asignación de valor a una variable (ver sección \ref{sec:variables})}
+  \item{llamada a una función (ver sección \ref{sec:funciones})}
+  \item{llamadas de entrada y salida (ver sección \ref{sec:entrada-salida})}
+  \item{bloques de código introducidos por instrucciones de control de flujo (ver sección \ref{sec:flujo})}
+\end{itemize}
+Por último, el programa debe terminar con una de dos declaraciones: \texttt{shi}, en caso de que el tipo de retorno sea \texttt{kyo} o cuando quiera forzarse el término de la ejecución, o \texttt{kisu [result]} si se especifica algún tipo de retorno, siendo \texttt{result} una variable o un valor que pertenezca al tipo. Si bien estas llamadas pueden aparecer más de una vez en el código, por ejemplo, en un control de flujo, es requerido que aparezca al final para marcar el final del programa.\\
+
+En Romaji, las diferentes instrucciones deben estar separadas por un salto de línea, exceptuando los casos en los que se deba agrupar el código en bloques. Se requiere esto cuando
+\begin{itemize}
+  \item{declaramos el código de una función, por ejemplo el código de la función \texttt{omo}.}
+  \item{el código se ejecuta dentro de una estructura de control, como un bucle o un condicional (ver sección \ref{sec:flujo}).}
+\end{itemize}
+En estos casos, las llaves pueden considerarse saltos de línea, es decir, se puede escribir el código previo a la llave y el posterior en la misma línea. Sin embargo, la misma norma se aplica en las diferentes instrucciones dentro del bloque.\\
+
+Los comentarios se deben escribir en secciones ignoradas del código. Estas zonas se definen después de una almohadilla (\#) hasta el final de la línea.
+
+\subsection{Entrada y salida}
+\label{sec:entrada-salida}
+
+Existen dos funciones propias del lenguaje Romaji para la interacción, la de impresión y la de lectura, y se invocan utilizando las palabras clave \texttt{tsutaeru} y \texttt{uketoru} respectivamente.\\
+
+El esquema para imprimir es el siguiente:
+
+\begin{lstlisting}[language=Romaji]
+    tsutaeru [var, string or number] [...]
+\end{lstlisting}
+Se imprimirán en orden  valores que se especifican, terminando con el salto de línea. Ejemplo:
+
+\begin{lstlisting}[language=Romaji]
+    omo:kyo <- 
+    {
+        seisu i <- 7
+        furotingu f <- -2.67
+        mojiretsu s <- "plus"
+        tsutaeru i s f "equals" + 7 f "\n"
+        shi
+    }
+\end{lstlisting}
+La ejecución del programa producirá en la terminal de salida este resultado:\\
+
+\texttt{7 plus -2.67 equals 4.33}\\
+\hspace{0pt}\\
+Nótese que al introducir un operador (\texttt{+}), empieza una expresión, que devuelve el resultado de la operación aritmética, contando como un único parámetro para la función \texttt{tsutaeru}.\\
+
+El esquema para escanear es el siguiente:
+\begin{lstlisting}[language=Romaji]
+    [variable] <- uketoru
+\end{lstlisting}
+La ejecución del programa se detendrá al llegar a la instrucción que contiene la llamada a la función de lectura, y esperará una entrada desde el teclado, que terminará cuando llegue un retorno de carro.
+
+Ejemplo:
+\begin{lstlisting}[language=Romaji]
+    omo:kyo <- 
+    {
+        tsutaeru "Choose an integer:"
+        seisu i <- uketoru
+        tsutaeru "You selected number " i "\n"
+        shi
+    }
+\end{lstlisting}
+La función de lectura puede utilizarse para cualquier variable asignable, pero la entrada debe estar en concordancia con el tipo de la misma, es decir: lo que se introduzca debe ser una asignación válida, o dicho de otra manera, debe introducirse el dato en un formato igual al que se aceptaría al asignar ese mismo valor en el código (con la excepción del tipo \texttt{mojiretsu}, que no requiere que el texto esté rodeado de comillas).
+
+\paragraph{Imprimiendo \texttt{shinri}}\hspace{0pt} \\
+Una nota sobre la especialidad de la función \texttt{tsutaeru} es en el momento de imprimir un literal o el resultado de una expresión de tipo \texttt{shinri}. Se imprimirá \say{shin} en caso de que el valor sea verdadero o \say{nise} en caso contrario.
+
+
+\subsection{Funciones}
+\label{sec:funciones}
+
+Para declarar una función en Romaji se sigue este esquema:
+
+\begin{lstlisting}[language=Romaji]
+    kansu [func name]:[ret type] <- [arguments]
+    {
+        [code]
+        kisu [result]
+    }
+\end{lstlisting}
+
+La palabra clave \texttt{kansu} indica el comienzo de la declaración, marcando el nombre de la función con la cadena antes de los dos puntos. Como con la función principal, después se especifica el tipo de retorno y los argumentos.
+\paragraph{Argumentos} \hspace{0pt} \\
+Se especifican de la siguiente manera: separados por espacios, se escribe el tipo al que pertenece, dos puntos, y el nombre que tomará en la función. Los argumentos se pueden utilizar como variables dentro del código de la función, aplicandose todas las reglas para variables (sección \ref{sec:variables}).
+En Romaji, los argumentos que vienen dados como variables se pasan siempre por referencia, de forma que al realizar operaciones que los modifiquen, estamos modificando la zona de memoria donde están almacenados. El resto de argumentos, que pueden ser literales, expresiones o llamadas a funciones (se toma el resultado de las expresiones y el retorno de la función como argumentos), se pasan por copia.\\
+
+La definición del código de la función viene integrada con la declaración, no pueden separarse ni redefinirse en el mismo código. Como con las variables, las funciones son accesibles para el código posterior a su declaración; es decir, que no se puede hacer una llamada a una función que esté declarada posteriormente a la llamada.\\
+
+Para llamar a una función en el código seguimos el esquema de notación prefija:
+
+\begin{lstlisting}[language=Romaji]
+    [function name] [arg1] ... [argN]
+\end{lstlisting}
+
+Deben pasarse los parámetros que la función reciba en orden, ya sea utilizando una variable o un valor literal. Las funciones pueden ser llamadas en asignaciones o en \say{solitario}, siempre que estén dentro del flujo del programa, es decir, dentro del código de la función principal o de otra función.\\
+
+\newpage
+Ejemplo de definición y llamada:
+
+\begin{lstlisting}[language=Romaji]
+    kansu multiply:seisu <- seisu:a seisu:b {
+        kisu * a b
+    }
+    
+    omo:kyo <- {
+        seisu a <- 1
+        seisu a_squared
+        a_squared <- multiply a a
+        shi
+    }
+\end{lstlisting}
+
+Ejemplo de como no se debe realizar una llamada:
+
+\begin{lstlisting}[language=Romaji]
+    kansu function:seisu <- seisu:a seisu:b { [...] }
+    
+    function 1 2    # nunca se pasa por esta linea
+
+    omo:kyo <- { [...] }
+\end{lstlisting}
+
+Nótese que una función con retorno puede ser llamada sin que este se capture en una asignación o se utilice como operando en alguna operación.
+
+\subsection{Variables}
+\label{sec:variables}
+
+Para declarar una variable en Romaji se sigue este esquema:
+\begin{lstlisting}[language=Romaji]
+    [type] [var name] [<- initial value]
+\end{lstlisting}
+
+La declaración de una variable puede situarse en cualquier lugar del código fuente, pero su localización tiene impacto en el ámbito de la misma. Una variable declarada fuera de una función tiene ámbito global en el código sucesivo, mientras que una variable declarada dentro de un bloque de código solo tiene presencia en lo sucesivo del mismo.
+
+Ejemplo:
+
+\begin{lstlisting}[language=Romaji]
+    seisu global_counter <- 0
+
+    omo:kyo <- { 
+        naga seisu local_counter
+        local_counter <- ++ global_counter  # global_counter es accesible
+    }
+
+    kansu function:seisu <- seisu:a {
+      local_counter <- a  # instruccion ilegal
+    }
+\end{lstlisting}
+
+Las variables aparecen en tres ocasiones: en la declaración, en asignaciones y cuando se quiere tomar su valor. En este último caso (que también puede ser al tiempo declaración), se pueden aplicar todas las operaciones a las variables de tipo numérico siempre que estas retornen el tipo que se requiere. Las variables de tipo \texttt{mojiretsu} no admiten operaciones aritméticas, solo de comparación, que se aplican al contenido de la cadena en el caso del operador \texttt{=} y a la longitud de la misma en el caso del resto de los operadores.
+
+\paragraph{Normativa de nomenclatura} \hspace{0pt} \\
+Tanto las variables como las funciones deben seguir unas normas en cuanto a su nombre. El nombre debe tener al menos un caracter de longitud, y ha de estar compuesto de caracteres alfanuméricos y/o \say{\_}, excluyendo cualquier otro símbolo, pero no pueden comenzar con un número. Además, no pueden ser iguales a ninguna palabra reservada.
+
+\subsection{Control de flujo}
+\label{sec:flujo}
+
+\subsubsection{Condicionales}
+
+Para insertar un bloque de código que se quiera ejecutar en unas condiciones específicas, existen varias estructuras disponibles.
+
+Si deseamos ejecutar un bloque de código bajo una única condición:
+
+\begin{lstlisting}[language=Romaji]
+    to [condition] {
+        [code]
+    }
+\end{lstlisting}
+
+Donde \texttt{condition} es una expresión que de como resultado un valor booleano, ya sea una expresión de comparación o una llamada a una función con retorno booleano. En el programa se evaluará la condición, y de ser cierta, se ejecutará el bloque de código.\\
+
+Para indicar que se debe ejecutar un bloque de código si una condición es cierta y otro distinto si no lo es:
+
+\begin{lstlisting}[language=Romaji]
+    to [condition] {
+        [code if true]
+    }
+    ta {
+        [code if false]
+    }
+\end{lstlisting}
+
+\textbf{Recordatorio}: las expresiones booleanas en Romaji se evalúan en \texttt{shin} o \texttt{nise}.
+
+\subsubsection{Bucles}
+
+Podemos escribir un bloque de código que se ejecute repetidamente si se cumple una condición.
+
+\begin{lstlisting}[language=Romaji]
+    naka [condition] {
+        [code]
+    }
+\end{lstlisting}
+La condición se expresa igual que en las instrucciones condicionales.
+En el programa, se evaluará la condición antes de entrar en el bloque de código; de ser verdadera se ejecutará y en caso contrario saltará al final del bloque de código para continuar con la siguiente instrucción.
+
+
+
+\end{document}
+

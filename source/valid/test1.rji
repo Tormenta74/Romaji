@@ -1,0 +1,16 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #1 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a very basic program that declares an integer, assigns it an arith-
+# metic exception (the sum of 1 and 2) and returns it
+
+omo:seisu <- 
+{
+    seisu a
+    a <- + 1 2
+    kisu a
+}
+

@@ -1,0 +1,19 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #2 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a demonstration of the use of uketoru for variables, of the type
+# hierarchy and of the previously missing not operator
+omo:seisu <-
+{
+    daburu a <- 0.5
+    naga seisu b
+    a <- uketoru
+    b <- uketoru
+    to ! < a b
+        tsutaeru a " is greater or equal than 0.5"
+    ta
+        tsutaeru a " is lesser than " b
+}

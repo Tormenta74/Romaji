@@ -1,0 +1,17 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #2 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a program that demonstrates the use of strings in Romaji: one can
+# use the string type "mojiretsu" as well as literals surrounded by
+# quotations, and there are two instructions: uketoru receives from
+# stdin and tsutaeru prints to stdout
+
+omo:seisu <-
+{
+    mojiretsu salute <- "Hello, "
+    mojiretsu name <- uketoru
+    tsutaeru salute name "!\n"
+}

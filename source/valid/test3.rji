@@ -1,0 +1,31 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #2 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# function definition:
+# - kansu is the keyword for function,
+# - multiply is the name chosen by the programer
+# - after the colon, seisu specifies the return type
+# - after the left arrow, the parameters are passed as such:
+#   - [type]:[name]
+# - and lastly the function code is surrounded by curly brackets
+# - the function ends with the kisu statement, and if the return type
+#   is other than kyo (void) it must be followed by the return value
+
+kansu multiply:seisu <- seisu:a seisu:b
+{
+    kisu * a b
+}
+
+# As specified before, since the return type is kyo, the program ends
+# with the keyword shi
+# Functions are called like this: 
+
+omo:kyo <- 
+{
+    seisu a <- 1
+    sum_function a a
+    shi
+}

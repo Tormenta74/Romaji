@@ -1,0 +1,30 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #2 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a demonstration of the use of loops and flow control instructions
+# - naka starts a "while" loop evaluating the condition that follows 
+#       before the curly brackets
+# - to means "if" and ta "else", evaluating the condition that follows
+#       - if there are no curly brackets, only one statement (line)
+#         is executed
+#       - else all statements in the brackets are executed
+# - conditions must be defined inside parenthesis and follow the
+#   arithmetic conventions
+
+omo:seisu <-
+{
+    seisu i <- 0
+    seisu j
+    naka < i 10 {
+        to = i 5
+            tsutaeru "I'm number five!"
+        ta {
+            tsutaeru "I'm not!"
+            j <- i
+        }
+    }
+    kisu j
+}

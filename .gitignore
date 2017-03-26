@@ -1,0 +1,8 @@
+
+build/
+
+*.aux
+*.out
+*.toc
+*.log
+*.zip
