@@ -326,7 +326,7 @@ El código (\texttt{[code]}) del programa debe estar rodeado de llaves, ya sean 
   \item{llamadas de entrada y salida (ver sección \ref{sec:entrada-salida})}
   \item{bloques de código introducidos por instrucciones de control de flujo (ver sección \ref{sec:flujo})}
 \end{itemize}
-Por último, el programa debe terminar con una de dos declaraciones: \texttt{shi}, en caso de que el tipo de retorno sea \texttt{kyo} o cuando quiera forzarse el término de la ejecución, o \texttt{kisu [result]} si se especifica algún tipo de retorno, siendo \texttt{result} una variable o un valor que pertenezca al tipo. Si bien estas llamadas pueden aparecer más de una vez en el código, por ejemplo, en un control de flujo, es requerido que aparezca al final para marcar el final del programa.\\
+Por último, el programa debe terminar con una de dos declaraciones: \texttt{shi}, en caso de que el tipo de retorno sea \texttt{kyo} o cuando quiera forzarse el término de la ejecución, o \texttt{kisu [result]} si se especifica algún tipo de retorno, siendo \texttt{result} una variable o un valor que pertenezca al tipo. Si bien estas llamadas pueden aparecer más de una vez en el código, por ejemplo, en un control de flujo, es requerido que aparezca al final para marcar el final del programa. (Nota: la función principal debe aparecer en el programa una única vez, siendo este el único requisito para que el programa sea válido, y aparecerá al final del programa, ya que como se verá más adelante, no tiene sentido definir funciones posteriormente al \texttt{omo}.)\\
 
 En Romaji, las diferentes instrucciones deben estar separadas por un salto de línea, exceptuando los casos en los que se deba agrupar el código en bloques. Se requiere esto cuando
 \begin{itemize}
@@ -347,7 +347,7 @@ El esquema para imprimir es el siguiente:
 \begin{lstlisting}[language=Romaji]
     tsutaeru [var, string or number] [...]
 \end{lstlisting}
-Se imprimirán en orden  valores que se especifican, terminando con el salto de línea. Ejemplo:
+Se imprimirán en orden los valores que se especifican entre paréntesis. Ejemplo:
 
 \begin{lstlisting}[language=Romaji]
     omo:kyo <- 
@@ -355,7 +355,7 @@ Se imprimirán en orden  valores que se especifican, terminando con el salto de 
         seisu i <- 7
         furotingu f <- -2.67
         mojiretsu s <- "plus"
-        tsutaeru i s f "equals" + 7 f "\n"
+        tsutaeru (i s f "equals" + 7 f "\n")
         shi
     }
 \end{lstlisting}
@@ -375,9 +375,9 @@ Ejemplo:
 \begin{lstlisting}[language=Romaji]
     omo:kyo <- 
     {
-        tsutaeru "Choose an integer:"
+        tsutaeru ("Choose an integer:")
         seisu i <- uketoru
-        tsutaeru "You selected number " i "\n"
+        tsutaeru ("You selected number " i "\n")
         shi
     }
 \end{lstlisting}
@@ -410,10 +410,10 @@ La definición del código de la función viene integrada con la declaración, n
 Para llamar a una función en el código seguimos el esquema de notación prefija:
 
 \begin{lstlisting}[language=Romaji]
-    [function name] [arg1] ... [argN]
+    [function name] ( [arg1] ... [argN] )
 \end{lstlisting}
 
-Deben pasarse los parámetros que la función reciba en orden, ya sea utilizando una variable o un valor literal. Las funciones pueden ser llamadas en asignaciones o en \say{solitario}, siempre que estén dentro del flujo del programa, es decir, dentro del código de la función principal o de otra función.\\
+Deben pasarse los parámetros que la función reciba en orden, ya sea utilizando una variable o un valor literal, entre paréntesis. Las funciones pueden ser llamadas en asignaciones o en \say{solitario}, siempre que estén dentro del flujo del programa, es decir, dentro del código de la función principal o de otra función.\\
 
 \newpage
 Ejemplo de definición y llamada:
@@ -426,7 +426,7 @@ Ejemplo de definición y llamada:
     omo:kyo <- {
         seisu a <- 1
         seisu a_squared
-        a_squared <- multiply a a
+        a_squared <- multiply (a a)
         shi
     }
 \end{lstlisting}
@@ -436,7 +436,7 @@ Ejemplo de como no se debe realizar una llamada:
 \begin{lstlisting}[language=Romaji]
     kansu function:seisu <- seisu:a seisu:b { [...] }
     
-    function 1 2    # nunca se pasa por esta linea
+    function (1 2)    # nunca se pasa por esta linea
 
     omo:kyo <- { [...] }
 \end{lstlisting}

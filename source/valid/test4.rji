@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------- 
 # ULPGC, Procesadores de Lenguajes
-# Test #2 de la batería de tests en el lenguaje Romaji
+# Test #4 de la batería de tests en el lenguaje Romaji
 # Diego Sáinz de Medrano, marzo 2017
 # -------------------------------------------------------------------
 
@@ -19,10 +19,11 @@ omo:seisu <-
     seisu i <- 0
     seisu j
     naka < i 10 {
-        to = i 5
-            tsutaeru "I'm number five!"
+        to = i 5 {
+            tsutaeru ("I'm number five!")
+        }
         ta {
-            tsutaeru "I'm not!"
+            tsutaeru ("I'm not!")
             j <- i
         }
     }

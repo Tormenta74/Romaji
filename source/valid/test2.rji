@@ -13,5 +13,5 @@ omo:seisu <-
 {
     mojiretsu salute <- "Hello, "
     mojiretsu name <- uketoru
-    tsutaeru salute name "!\n"
+    tsutaeru (salute name "!\n")
 }

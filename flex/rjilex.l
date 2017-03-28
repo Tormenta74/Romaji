@@ -17,10 +17,10 @@ arrow           "<-"
 
 %%
 
-\n         {++line;}
-[ \t]+     |
+\n         |
 ^#.*       |
-#[^\n]*\n  {/* ignore */}
+#[^\n]*\n  {++line;}
+[ \t]+     {/* ignore whitespace */}
 
  /* keywords */
 
@@ -47,8 +47,8 @@ arrow           "<-"
 "shi"       {return EXIT;   }
 
  /** I/O **/
-"tsutaeru"  {return PRINT;  }
-"uketoru"   {return SCAN;   }
+"tsutaeru"  {return PRINT;    }
+"uketoru"   {return SCAN;     }
 
  /** special values **/
 "shin"      {return TRUE;}
@@ -57,12 +57,12 @@ arrow           "<-"
  /** assignment **/
 {arrow}     {return ARROW;  }
 
-[-+*/%=&|!<>{}:]   {return *yytext;}
+[-+*/%=&|!<>{}():]   {return *yytext;}
 
 {letter}{letterdigit}*          {return ID;     }
-("-")?{digit}+                  {return INT_N;    }
-{hexnum}                        {return INT_H;}
-(("-")?{digit})?+("."){digit}+  {return FLO_N;    }
+("-")?{digit}+                  {return INT_N;  }
+{hexnum}                        {return INT_H;  }
+(("-")?{digit})?+("."){digit}+  {return FLO_N;  }
 \"(\\.|[^\\"])*\"               {return STR;    }
 
 .   {l_error("unrecognized character", *yytext);}

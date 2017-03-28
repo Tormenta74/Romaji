@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------- 
 # ULPGC, Procesadores de Lenguajes
-# Test #2 de la batería de tests en el lenguaje Romaji
+# Test #3 de la batería de tests en el lenguaje Romaji
 # Diego Sáinz de Medrano, marzo 2017
 # -------------------------------------------------------------------
 
@@ -26,6 +26,6 @@ kansu multiply:seisu <- seisu:a seisu:b
 omo:kyo <- 
 {
     seisu a <- 1
-    sum_function a a
+    sum_function (a a)
     shi
 }

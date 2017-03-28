@@ -3,6 +3,7 @@
     #include <stdlib.h>
 
     int line=1;
+    void verbose(char*);
 %}
 
 %union {
@@ -13,7 +14,7 @@
 }
 
 %token INT LONG UINT CHAR STRING FLOAT DOUBLE BOOL VOID
-%token WHILE IF ELSE FUNC RET MAIN EXIT PRINT SCAN
+%token WHILE IF ELSE FUNC RET MAIN EXIT PRINT SCAN PRINT_END
 %token ID INT_N INT_H FLO_N STR TRUE FALSE
 %token ARROW
 
@@ -49,21 +50,26 @@ declaration : INT ID | INT assignment
 
 /*
  * an identifier can only get a numerical value or a string,
- * as boolean variables are not defined
+ * as boolean variables are not defined (it can take values
+ * from the scan function)
  */
-assignment  : ID ARROW nexp | ID ARROW STR
+assignment  : ID ARROW nexp { verbose("a numeric assignment"); }
+            | ID ARROW STR { verbose("a string assignment"); }
+            | ID ARROW SCAN { verbose("a scan assignment"); }
 ;
 
 /*
  * a numerical expression is the result of operations and/or
  * literal numbers, that can also be the return of functions
  */
-nexp    : INT_N | INT_H | FLO_N  /*| func_call*/
+nexp    : INT_N | INT_H | FLO_N | ID | call
         | '-' nexp nexp
         | '+' nexp nexp
         | '*' nexp nexp
         | '/' nexp nexp
         | '%' nexp nexp
+        | '+' '+' ID
+        | '-' '-' ID
 ;
 
 /*
@@ -71,7 +77,7 @@ nexp    : INT_N | INT_H | FLO_N  /*| func_call*/
  * operations, literal truth values, function calls, or 
  * numerical comparisons
  */
-bexp    : TRUE | FALSE /*| func_call*/
+bexp    : TRUE | FALSE | ID | call
         /* purely boolean */
         | '=' bexp bexp
         | '&' bexp bexp
@@ -80,6 +86,8 @@ bexp    : TRUE | FALSE /*| func_call*/
         | '=' nexp nexp
         | '<' nexp nexp
         | '>' nexp nexp
+        | '<' '=' nexp nexp
+        | '>' '='nexp nexp
         /* negation */
         | '!' bexp
 ;
@@ -136,7 +144,36 @@ argument    : INT ':' ID
             | DOUBLE ':' ID 
 ;
 
-code    :
+code    : declaration code
+        | assignment code
+        | nexp code /* generally not useful, but increment and decrement operators take advantage of it */
+        /* a block of code inside a loop */
+        | WHILE bexp '{' code '}' code
+            { verbose("while structure"); }
+        /* a block of code inside a one condition guard */
+        | IF bexp '{' code '}' ELSE '{' code '}' code
+            { verbose("if/else structure"); }
+        /* a block of code inside a one condition guard */
+        | IF bexp '{' code '}' code
+            { verbose("if structure"); }
+        /* define the oneliners code blocks here */
+        
+        /* function calls on their own */
+        | call code
+        | PRINT '(' parameters ')' code
+        | RET parameter code
+        | RET code
+        | EXIT code
+        |
+;
+call        : ID '(' parameters ')' ;
+parameters  : /* no parameters */ 
+            | parameter parameters
+;
+parameter   : ID
+            | nexp
+            | bexp
+            | STR
 ;
 
 
@@ -146,6 +183,10 @@ int main(int argc, char *argv[]) {
     extern FILE *yyin;
     yyin = fopen(argv[1], "r");
     yyparse();
+}
+
+void verbose(char* msg) {
+    fprintf(stdout, "%i: %s\n", line, msg);
 }
 
 void yyerror(char* msg) {

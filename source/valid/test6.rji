@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------- 
 # ULPGC, Procesadores de Lenguajes
-# Test #2 de la batería de tests en el lenguaje Romaji
+# Test #6 de la batería de tests en el lenguaje Romaji
 # Diego Sáinz de Medrano, marzo 2017
 # -------------------------------------------------------------------
 
@@ -8,17 +8,17 @@
 omo:kyo <-
 {
     seisu a <- 12
-    tsutaeru + a 2  # prints 14
-    tsutaeru - a 2  # prints 10
-    tsutaeru * a 0  # prints 0
-    tsutaeru / a 2  # prints 6
-    tsutaeru % a 3  # prints 0
-    tsutaeru = a 2  # prints nise
-    tsutaeru > a 2  # prints shin
-    tsutaeru < a 2  # prints nise
-    tsutaeru >= a 2  # prints shin
-    tsutaeru <= a 2  # prints nise
-    tsutaeru | shin nise  # prints shin
-    tsutaeru & shin nise  # prints nise
+    tsutaeru ( + a 2 ) # prints 14
+    tsutaeru ( - a 2 ) # prints 10
+    tsutaeru ( * a 0 ) # prints 0
+    tsutaeru ( / a 2 ) # prints 6
+    tsutaeru ( % a 3 ) # prints 0
+    tsutaeru ( = a 2 ) # prints nise
+    tsutaeru ( > a 2 ) # prints shin
+    tsutaeru ( < a 2 ) # prints nise
+    tsutaeru ( >= a 2 ) # prints shin
+    tsutaeru ( <= a 2 ) # prints nise
+    tsutaeru ( | shin nise ) # prints shin
+    tsutaeru ( & shin nise ) # prints nise
     shi
 }

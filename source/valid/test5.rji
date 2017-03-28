@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------- 
 # ULPGC, Procesadores de Lenguajes
-# Test #2 de la batería de tests en el lenguaje Romaji
+# Test #5 de la batería de tests en el lenguaje Romaji
 # Diego Sáinz de Medrano, marzo 2017
 # -------------------------------------------------------------------
 
@@ -12,8 +12,10 @@ omo:seisu <-
     naga seisu b
     a <- uketoru
     b <- uketoru
-    to ! < a b
-        tsutaeru a " is greater or equal than 0.5"
-    ta
-        tsutaeru a " is lesser than " b
+    to ! < a b {
+        tsutaeru (a " is greater or equal than 0.5")
+    }
+    ta {
+        tsutaeru (a " is lesser than " b)
+    }
 }
