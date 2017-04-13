@@ -1,23 +1,33 @@
 
 CC = gcc
+C++C = g++
 LEXER = flex
 PARSER = bison
+CFLAGS = -std=gnu99 -g -Isymtable/
 LDFLAGS = -lfl -Lbuild/
 
 LEXDIR = flex
 PARSEDIR = bison
 BUILDDIR = build
+SEMDIR = symtable
 SRCCODE = source
 
 TARGET = rji
 LEXTARGET = $(TARGET)lex
 PARSETARGET = $(TARGET)parse
+SEMTARGET = symtable
 
 # necessary files
 _TABC = $(PARSETARGET).tab.c
 TABC = $(patsubst %,$(BUILDDIR)/%,$(_TABC))
+_TABO = $(PARSETARGET).tab.o
+TABO = $(patsubst %,$(BUILDDIR)/%,$(_TABO))
 _LEXC = $(LEXTARGET).yy.c
 LEXC = $(patsubst %,$(BUILDDIR)/%,$(_LEXC))
+_LEXO = $(LEXTARGET).yy.o
+LEXO = $(patsubst %,$(BUILDDIR)/%,$(_LEXO))
+_SEMO = $(SEMTARGET).o
+SEMO = $(patsubst %,$(BUILDDIR)/%,$(_SEMO))
 
 LEXFILE = $(LEXTARGET).l
 PARSEFILE = $(PARSETARGET).y
@@ -31,12 +41,18 @@ before:
 clean:
 	rm -f $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(TARGET)
 
-test: 
-	@./test.sh
 
-$(TARGET): $(TABC) $(LEXC)
+$(TARGET): $(TABO) $(LEXO) $(SEMO)
+	@echo "Linking $^"
+	$(C++C) -o $@ $^ $(LDFLAGS)
+
+$(TABO): $(TABC)
 	@echo "Compiling $^"
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ -c $< $(CFLAGS)
+
+$(LEXO): $(LEXC)
+	@echo "Compiling $^"
+	$(CC) -o $@ -c $< $(CFLAGS)
 
 $(TABC): $(PARSEDIR)/$(PARSEFILE)
 	@echo "Generating parser"
@@ -45,3 +61,9 @@ $(TABC): $(PARSEDIR)/$(PARSEFILE)
 $(LEXC): $(LEXDIR)/$(LEXFILE)
 	@echo "Generating lex scanner"
 	$(LEXER) -o $@ $<
+
+################################
+
+$(SEMO): $(SEMDIR)/$(SEMTARGET).cpp
+	@echo "Compiling the symbol table module"
+	$(C++C) -o $@ -c $<

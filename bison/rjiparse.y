@@ -1,7 +1,9 @@
 %{
     #include <stdio.h>
     #include <stdlib.h>
+    //#include "symtable.h"
 
+    //SymbolTable* table = new SymbolTable();
     int line=1;
     void verbose(char*);
 %}
