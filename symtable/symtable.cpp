@@ -5,19 +5,55 @@
 
 #include "symtable.h"
 
+char* names(int i) {
+    char* ret;
+    switch(i) {
+        case 267:
+            ret = strdup("seisu");
+            break;
+        case 268:
+            ret = strdup("naga seisu");
+            break;
+        case 269:
+            ret = strdup("nashi seisu");
+            break;
+        case 270:
+            ret = strdup("baito");
+            break;
+        case 271:
+            ret = strdup("mojiretsu");
+            break;
+        case 272:
+            ret = strdup("furotingu");
+            break;
+        case 273:
+            ret = strdup("daburu");
+            break;
+        case 274:
+            ret = strdup("shinri");
+            break;
+        case 275:
+            ret = strdup("kyo");
+            break;
+        default:
+            ret = strdup("null");
+    }
+    return ret;
+}
+
 // -------------------------------
 // Register
 
-SymbolRegister::SymbolRegister(int _type, double _value, char* _name) {
+SymbolRegister::SymbolRegister(int _type, int _ret, char* _name) {
     int l;
-    if((l=strlen(_name)) < 2) {
+    if((l=strlen(_name)) < 1) {
         throw "symbol can't have zero-length name\n";
         return;
     }
     name = (char*)malloc(l*sizeof(char)+1);
     strcpy(name,_name);
-    type = _type;
-    value = _value;
+    this->type = _type;
+    this->ret = _ret;
 }
 
 SymbolRegister::~SymbolRegister() {
@@ -36,12 +72,21 @@ int SymbolRegister::get_type() {
     return this->type;
 }
 
-double SymbolRegister::get_value() {
-    return this->value;
+int SymbolRegister::get_return() {
+    return this->ret;
 }
 
 char* SymbolRegister::get_name() {
     return this->name;
+}
+
+void SymbolRegister::print() {
+    char *type = names(this->ret);
+    fprintf(stdout,"%s %s:%s\n",
+            (this->type == VAR_T)?"variable":(this->type == FUNC_T)?"function":"argument",
+            this->name,
+            type);
+    free(type);
 }
 
 // -------------------------------
@@ -66,17 +111,18 @@ SymbolTable::~SymbolTable() {
     delete follower;
 }
 
-void SymbolTable::store_symbol(int type, double value, char* name) {
+void SymbolTable::store_symbol(int type, int ret, char* name) {
     SymbolRegister* second = this->head;
     SymbolRegister* new_reg;
     try {
-        new_reg = new SymbolRegister(type,value,name);
+        new_reg = new SymbolRegister(type,ret,name);
     } catch(const char* msg) {
-        throw msg;
+        fprintf(stderr,"%s",msg);
     }
     this->head = new_reg;
     this->head->next = second;
     this->head->set_level(this->ambit);
+    this->size++;
 }
 
 SymbolRegister* SymbolTable::get_symbol(char* name) {
@@ -96,5 +142,15 @@ void SymbolTable::push_ambit() {
 
 void SymbolTable::pop_ambit() {
     this->ambit--;
+}
+
+void SymbolTable::print() {
+    SymbolRegister* follower = this->head;
+    while(follower) {
+        for(int i=0;i<follower->get_level();i++)
+            fprintf(stdout,"\t");
+        follower->print();
+        follower = follower->next;
+    }
 }
 

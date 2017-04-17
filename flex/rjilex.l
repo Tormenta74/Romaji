@@ -1,9 +1,15 @@
 
 %{
-#include "rjiparse.tab.h"
+    extern "C"
+    {
+        int yylex(void);
+    }
+    #include "rjiparse.tab.h"
+    #include <stdlib.h>
+    #include <string.h>
 
-extern int line;
-void l_error(char*,char);
+    extern int line;
+    void l_error(char*,char);
 %}
 
 %option noyywrap
@@ -12,7 +18,6 @@ letter          [a-zA-z_?]
 digit           [0-9]
 letterdigit     {letter}|{digit}
 hex             [0-9a-fA-F]
-hexnum          ("0x"){hex}+
 arrow           "<-"
 
 %%
@@ -25,15 +30,15 @@ arrow           "<-"
  /* keywords */
 
  /** type **/
-"seisu"         {return INT;    }
-"naga seisu"    {return LONG;   }
-"nashi seisu"   {return UINT;   }
-"baito"         {return CHAR;   }
-"mojiretsu"     {return STRING; }
-"furotingu"     {return FLOAT;  }
-"daburu"        {return DOUBLE; }
-"shinri"        {return BOOL;   }
-"kyo"           {return VOID;   }
+"seisu"         { return INT;    }
+"naga seisu"    { return LONG;   }
+"nashi seisu"   { return UINT;   }
+"baito"         { return CHAR;   }
+"mojiretsu"     { return STRING; }
+"furotingu"     { return FLOAT;  }
+"daburu"        { return DOUBLE; }
+"shinri"        { return BOOL;   }
+"kyo"           { return VOID;   }
 
  /** control **/
 "naka"      {return WHILE;  }
@@ -51,19 +56,26 @@ arrow           "<-"
 "uketoru"   {return SCAN;     }
 
  /** special values **/
-"shin"      {return TRUE;}
-"nise"      {return FALSE;}
+"shin"      {yylval.bval = 0; return TRUE;}
+"nise"      {yylval.bval = 1; return FALSE;}
 
  /** assignment **/
 {arrow}     {return ARROW;  }
 
 [-+*/%=&|!<>{}():]   {return *yytext;}
 
-{letter}{letterdigit}*          {return ID;     }
-("-")?{digit}+                  {return INT_N;  }
-{hexnum}                        {return INT_H;  }
-(("-")?{digit})?+("."){digit}+  {return FLO_N;  }
-\"(\\.|[^\\"])*\"               {return STR;    }
+{letter}{letterdigit}*  {
+        yylval.sval = strdup(yytext);
+        return ID;}
+("-")?{digit}+  {
+        yylval.dval = atoi(yytext);
+        return INT_N;}
+(("-")?{digit})?+("."){digit}+  {
+        yylval.fval = atof(yytext);
+        return FLO_N;}
+\"(\\.|[^\\"])*\"   {
+        yylval.sval = strdup(yytext);
+        return STR;}
 
 .   {l_error("unrecognized character", *yytext);}
 

@@ -1,9 +1,8 @@
 
-CC = gcc
-C++C = g++
+CC = g++
 LEXER = flex
 PARSER = bison
-CFLAGS = -std=gnu99 -g -Isymtable/
+CFLAGS = -std=c++11 -g -Isymtable/
 LDFLAGS = -lfl -Lbuild/
 
 LEXDIR = flex
@@ -39,12 +38,12 @@ before:
 	[ -d $(OBJDIR) ]  || mkdir -p $(OBJDIR)
 
 clean:
-	rm -f $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(TARGET)
+	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(TARGET)
 
 
 $(TARGET): $(TABO) $(LEXO) $(SEMO)
 	@echo "Linking $^"
-	$(C++C) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 $(TABO): $(TABC)
 	@echo "Compiling $^"
@@ -66,4 +65,4 @@ $(LEXC): $(LEXDIR)/$(LEXFILE)
 
 $(SEMO): $(SEMDIR)/$(SEMTARGET).cpp
 	@echo "Compiling the symbol table module"
-	$(C++C) -o $@ -c $<
+	$(CC) -o $@ -c $<
