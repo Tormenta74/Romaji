@@ -1,6 +1,8 @@
 
 build/
 
+rji
+
 *.aux
 *.out
 *.toc

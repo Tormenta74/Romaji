@@ -3,7 +3,7 @@ CC = g++
 LEXER = flex
 PARSER = bison
 CFLAGS = -std=c++11 -g -Isymtable/
-LDFLAGS = -lfl -Lbuild/
+LDFLAGS = #-lfl -Lbuild/
 
 LEXDIR = flex
 PARSEDIR = bison

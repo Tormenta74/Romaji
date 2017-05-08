@@ -1,12 +1,13 @@
 %{
-    extern "C"
-    {
-        int yylex(void);
-    }
     #include <stdio.h>
     #include <stdlib.h>
 
     #include "symtable.h"
+
+    //extern "C"
+    //{
+        int yylex(void);
+    //}
 
     SymbolTable* table = new SymbolTable();
     int line=1;

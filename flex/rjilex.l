@@ -1,15 +1,15 @@
 
 %{
-    extern "C"
+    /*extern "C"
     {
         int yylex(void);
-    }
+    }*/
     #include "rjiparse.tab.h"
     #include <stdlib.h>
     #include <string.h>
 
     extern int line;
-    void l_error(char*,char);
+    void l_error(const char*,char);
 %}
 
 %option noyywrap
@@ -83,6 +83,6 @@ arrow           "<-"
 
 %%
 
-void l_error(char* msg, char c) {
+void l_error(const char* msg, char c) {
     fprintf(stderr, "flex: %i: %c %s\n", line, c, msg);
 }
