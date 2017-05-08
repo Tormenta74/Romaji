@@ -1,0 +1,103 @@
+
+program -> declaration program 
+        -> definition program  
+        -> main
+
+declaration -> INT ID 
+            -> INT assignment 
+            -> LONG ID 
+            -> LONG assignment
+            -> UINT ID 
+            -> UINT assignment 
+            -> CHAR ID 
+            -> CHAR assignment
+            -> STRING ID 
+            -> STRING assignment 
+            -> FLOAT ID 
+            -> FLOAT assignment
+            -> DOUBLE ID 
+            -> DOUBLE assignment
+
+assignment  -> ID ARROW nexp 
+            -> ID ARROW STR 
+            -> ID ARROW SCAN
+
+nexp    -> INT_N 
+        -> FLO_N 
+        -> ID 
+        -> call 
+        -> - nexp nexp 
+        -> + nexp nexp
+        -> * nexp nexp 
+        -> / nexp nexp 
+        -> % nexp nexp 
+        -> + + ID 
+        -> - - ID
+
+bexp    -> TRUE 
+        -> FALSE 
+        -> ID 
+        -> call 
+        -> = bexp bexp 
+        -> & bexp bexp 
+        -> OR bexp bexp
+        -> = nexp nexp 
+        -> < nexp nexp 
+        -> > nexp nexp 
+        -> < = nexp nexp 
+        -> > = nexp nexp 
+        -> ! bexp
+
+definition  -> signature ARROW arguments { code }
+signature   -> FUNC ID : INT 
+            -> FUNC ID : LONG 
+            -> FUNC ID : UINT
+            -> FUNC ID : CHAR 
+            -> FUNC ID : STRING
+            -> FUNC ID : FLOAT 
+            -> FUNC ID : DOUBLE
+            -> FUNC ID : BOOL 
+            -> FUNC ID : VOID
+
+main -> main_sig ARROW arguments { code }
+main_sig    -> MAIN : INT 
+            -> MAIN : LONG 
+            -> MAIN : UINT
+            -> MAIN : CHAR 
+            -> MAIN : STRING
+            -> MAIN : FLOAT 
+            -> MAIN : DOUBLE
+            -> MAIN : BOOL 
+            -> MAIN : VOID
+
+arguments   -> EPSILON 
+            -> argument arguments
+
+argument    -> INT : ID 
+            -> LONG : ID 
+            -> UINT : ID 
+            -> CHAR : ID
+            -> STRING : ID 
+            -> FLOAT : ID 
+            -> DOUBLE : ID
+
+code    -> declaration code 
+        -> assignment code 
+        -> nexp code 
+        -> WHILE bexp { code } code
+        -> IF bexp { code } ELSE { code } code
+        -> IF bexp  { code } code
+        -> call code
+        -> PRINT ( parameters ) code
+        -> RET parameter code
+        -> RET code
+        -> EXIT 
+        -> EPSILON
+
+call        -> ID ( parameters )
+parameters  -> EPSILON 
+            -> parameter parameters
+parameter   -> nexp 
+            -> bexp 
+            -> STR
+
