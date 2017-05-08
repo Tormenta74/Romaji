@@ -1,12 +1,15 @@
 
 %{
-    /*extern "C"
-    {
-        int yylex(void);
-    }*/
+    #ifdef _USING_BISON_PARSER
     #include "rjiparse.tab.h"
+    #else
+    #include "bison-bridge.h"
+    #endif
+
     #include <stdlib.h>
     #include <string.h>
+
+    YYSTYPE yylval;
 
     extern int line;
     void l_error(const char*,char);

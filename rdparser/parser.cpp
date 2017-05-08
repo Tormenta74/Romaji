@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include "format.h"
 #include "parser.h"
+#include "bison-bridge.h"
 
 int line=1;
-extern YYSTYPE yylval;
 
 /** auxiliar **/
 
@@ -19,6 +19,11 @@ bool is_decl_type(int token) {
         token == DOUBLE;
 }
 
+/** main **/
+int main(int argc, char *argv[]) {
+    return parse();
+}
+
 /** implementations **/
 
 int parse() {
@@ -28,8 +33,8 @@ int parse() {
 }
 
 int program() {
-    int next;
-    while(is_decl_type(next = yylex()) || next == FUNC)
+    int next = yylex();
+    while(is_decl_type(next) || next == FUNC)
         if(!declaration() && !definition())
             return PARSE_ERR;
     return mn();
