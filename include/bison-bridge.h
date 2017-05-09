@@ -99,7 +99,7 @@ extern YYSTYPE yylval;
 
 int yyparse (void);
 
-/* only extra line */
+/* my modification: */
 int yylex (void);
 
 #endif /* !YY_YY_BUILD_RJIPARSE_TAB_H_INCLUDED  */

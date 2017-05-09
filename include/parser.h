@@ -8,19 +8,19 @@
 int parse();
 
 int program();
-int declaration();
+int declaration(int,int*);
 int definition();
 int mn();
 int assignment();
-int nexp();
+int nexp(int);
 int bexp();
 int signature();
 int main_sig();
-int arguments();
-int argument();
-int code();
+//int arguments(); // replaced by for loop
+int argument(int);
+int code(int);
 int call();
-int parameters();
+//int parameters() // replaced by for loop;
 int parameter();
 
 void verbose(const char*);

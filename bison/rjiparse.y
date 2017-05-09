@@ -4,10 +4,7 @@
 
     #include "symtable.h"
 
-    //extern "C"
-    //{
-        int yylex(void);
-    //}
+    int yylex(void);
 
     SymbolTable* table = new SymbolTable();
     int line=1;
