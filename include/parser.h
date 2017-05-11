@@ -12,7 +12,7 @@ int declaration(int,int*);
 int definition();
 int mn();
 int assignment();
-int nexp(int);
+int nexp(int,int*);
 int bexp();
 int signature();
 int main_sig();
