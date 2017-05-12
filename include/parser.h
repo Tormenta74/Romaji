@@ -4,26 +4,25 @@
 
 #define PARSE_OK 0
 #define PARSE_ERR 1
+#define PARSE_WARN 2
 
-int parse();
+int start(char*);
 
 int program();
 int declaration(int,int*);
 int definition();
 int mn();
-int assignment();
+//int assignment(); // taken care of when needed
 int nexp(int,int*);
-int bexp();
-int signature();
-int main_sig();
+int bexp(int);
+//int signature(); // totally unnecesary
+//int main_sig(); // totally unnecesary
 //int arguments(); // replaced by for loop
 int argument(int);
 int code(int);
 int call();
 //int parameters() // replaced by for loop;
-int parameter();
+int parameter(int*);
 
-void verbose(const char*);
-void p_error(const char*);
 
 #endif

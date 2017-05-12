@@ -36,7 +36,7 @@ nexp    -> INT_N
 
 bexp    -> TRUE 
         -> FALSE 
-        -> ID 
+        -> ID               #no such thing!
         -> call 
         -> = bexp bexp 
         -> & bexp bexp 
@@ -83,7 +83,7 @@ argument    -> INT : ID
 
 code    -> declaration code 
         -> assignment code 
-        -> nexp code 
+        -> nexp code                            #(not true)
         -> WHILE bexp { code } code
         -> IF bexp { code } ELSE { code } code
         -> IF bexp  { code } code

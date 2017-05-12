@@ -44,12 +44,12 @@ before:
 clean:
 	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET)
 
-rdparser_comp: $(PAR_O) $(LEX_O) $(SEM_O)
+rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O)
 	@echo -e "\nLinking $^"
 	$(CC) -o $(TARGET) $^ $(LDFLAGS)
 	@echo -e "------------"
 
-bison_comp: $(TAB_O) $(LEX_O) $(SEM_O)
+bison_comp: $(TAB_O) $(LEX_O) $(SYM_O)
 	@echo -e "\nLinking $^"
 	$(CC) -o $(TARGET) $^ $(LDFLAGS)
 	@echo -e "------------"
