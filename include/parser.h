@@ -6,7 +6,7 @@
 #define PARSE_ERR 1
 #define PARSE_WARN 2
 
-int start(char*);
+int start();
 
 int program();
 int declaration(int,int*);

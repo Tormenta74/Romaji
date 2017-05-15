@@ -32,6 +32,7 @@ int func_counter = 0;
 
 extern YYSTYPE yylval;
 extern char *yytext;
+extern FILE *yyin;
 
 SymbolTable *table = new SymbolTable();
 
@@ -39,17 +40,19 @@ SymbolTable *table = new SymbolTable();
 /** ** **        HELPER FUNCTIONS        ** ** **/
 /*==============================================*/
 
+// useful for debugging
 void verbose(const char* msg) {
     char buffer[256] = "";
-    sprintf(buffer,"parser@%i: %s\n", line, msg);
+    sprintf(buffer,"parser@%i: " BLUE "\"%s\"" CLEAR_FORMAT "\n", line, msg);
     fprintf(stdout,buffer);
 }
 
+// formats error messages
 void p_error(const char* msg) {
-    fprintf(stderr,"parser@%i: syntax error \"" RED "%s\"" CLEAR_FORMAT "\n" ,line,msg);
+    fprintf(stderr,"parser@%i: syntax error " RED "\"%s\"" CLEAR_FORMAT "\n" ,line,msg);
 }
 
-
+// oneliner for checking if token is type keyword
 bool is_type(int token) {
     return 
         token == INT ||
@@ -58,9 +61,13 @@ bool is_type(int token) {
         token == CHAR ||
         token == STRING ||
         token == FLOAT  ||
-        token == DOUBLE;
+        token == DOUBLE  ||
+        token == BOOL  ||
+        token == VOID;
+    //TODO: are bool and void not types?
 }
 
+// oneliner for checking if token is a numeric operator
 bool is_num_oper(int token) {
     return 
         token == '+' ||
@@ -70,15 +77,19 @@ bool is_num_oper(int token) {
         token == '%';
 }
 
-bool is_bool_oper(int token) {
+// oneliner for checking if token is a logic operator
+bool is_logic_oper(int token) {
     return 
         token == '=' ||
         token == '<' ||
         token == '>' ||
+        token == '&' ||
+        token == '|' ||
         token == '!';
 }
 
-// use when there is no room for ambiguity
+// use when there is no room for ambiguity:
+// prints error and returns error code
 int expect(int expected, bool type=false) {
     int next = yylex();
     if(type) { // ignore expected
@@ -116,10 +127,9 @@ int drop_until_brace() {
     return PARSE_ERR;
 }
 
-// auxiliar, but almost part of the code:
-// it performs divergence between boolean
-// and numeric expressions
-int expression(int previous) {
+// auxiliar, but almost part of the code: it
+// settles between boolean and numeric expressions
+int expression(int prev) {
     //TODO
     return PARSE_ERR;
 }
@@ -130,7 +140,11 @@ int expression(int previous) {
 
 int main(int argc, char *argv[]) {
     //TODO
-    return start(argv[1]);
+    if(argc>1)
+        if((yyin = fopen(argv[1],"r")) == NULL)
+            return -1;
+    verbose("diving into the parse tree");
+    return start();
 }
 
 /*==============================================*/
@@ -141,7 +155,7 @@ int main(int argc, char *argv[]) {
  * Initializes object file
  * Receives: source code filename 
  */
-int start(char* filename) {
+int start() {
     /* TODO: code generation in this line */
     return program();
     /* and this one */
@@ -150,18 +164,11 @@ int start(char* filename) {
 
 /*
  * Previous token: none
- * Lookahead: 1
  * Description: Program is a series of declarations
- * | definitions plus the main function. The first
- * terminals then ought to be always a match of
- * ({type} | "kansu")* "omo"
- * */
-/*
- * Previous token: 
- * Description:
- * Lookahead:
+ * | definitions plus the main function.
+ * Lookahead: 1
  * Eq. rule:
- *
+ *      (declaration | definition)* main
  */
 int program() {
     int next = yylex(), peek;
@@ -171,12 +178,14 @@ int program() {
             if(declaration(next,&peek) == PARSE_ERR)
                 return PARSE_ERR;
             next = peek; // in declaration we looked +1 ahead
+            verbose("declarations++");
         }
         /* verify definition correct */
         else if(next == FUNC) {
             if(definition() == PARSE_ERR)
                 return PARSE_ERR;
             next = yylex();
+            verbose("definitions++");
         }
         /* not main and not the previous */
         else {
@@ -191,18 +200,14 @@ int program() {
 
 /*
  * -Previous token: {type}
- * -Lookahead: 2
- * -Description: consists of a type keyword, an
- * identifier and optionally an asignment. So
- * {type} ID ("<-" nexp)?
- * -Stores next token in *looked
- * */
-/*
- * Previous token: 
- * Description:
- * Lookahead:
+ * Description: consists of a type keyword, an
+ * identifier and optionally an asignment. in
+ * order to figure out if an assignment is next,
+ * it consumes one extra token, which is stored in
+ * *looked.
+ * Lookahead: 2
  * Eq. rule:
- *
+ *      {type} ID ("<-" nexp)?
  */
 int declaration(int prev, int *looked) {
     int next, type;
@@ -221,18 +226,13 @@ int declaration(int prev, int *looked) {
 }
 
 /*
- * -Previous token: "kansu" (no need to use it)
- * -Lookahead: 1
- * -Description: 
- * "kansu" ID ':' {type} "<-" (argument)*
- * '{' code '}'
- * */
-/*
- * Previous token: 
- * Description:
- * Lookahead:
+ * Previous token: "kansu" (no need to use it)
+ * Lookahead: 1
+ * Description: process tokens until '}', meaning
+ * the function body is complete. very clean
  * Eq. rule:
- *
+ *      "kansu" ID ':' {type} "<-" (argument)*
+ *      '{' code '}'
  */
 int definition() {
     int ret,next,num_args=0;
@@ -260,25 +260,20 @@ int definition() {
     }
     // everything ok up to here, so we register the function
     func_counter++;
+    //TODO: set the correct scope (or number) of the function
     table->store_symbol(ret, FUNC_T, num_args, name);
 
     return code(ret);
 }
 
 /*
- * -Previous token: "omo" (no need to use it)
- * -Lookahead: 1
- * -Description: 
- * "omo" ':' {type} "<-" (argument)*
- * '{' code '}'
- * */
-/*
- * Previous token: 
- * Description:
- * Args: 
- * Lookahead:
+ * Previous token: "omo" (no need to use it)
+ * Description: very similar to the function parsing
+ * Args: none
+ * Lookahead: 1
  * Eq. rule:
- *
+ *      "omo" ':' {type} "<-" (argument)*
+ *      '{' code '}'
  */
 int mn() {
     int ret, next;
@@ -302,51 +297,117 @@ int mn() {
 }
 
 /*
- * -Previous token: '{' (no need to use it)
- * -Receives: return type for exit/return checks
- * -Lookahead: 1
- * -Description: 
- * '{' uffff... '}'
- * */
-/*
- * Previous token: 
- * Description:
- * Args: 
- * Lookahead:
+ * Previous token: '{' (no need to use it)
+ * Description: checks for code integrity and
+ * for return type.
+ * Args:
+ *   - ret: the expected return type
+ * Lookahead: 2
  * Eq. rule:
- *
+ *      '{' {better see the grammar for this rule} '}'
  */
 int code(int ret) {
     //TODO
     int first = yylex();
+    int plus_or_minus = first; // if we save the + / - we can avoid repeating their code twice
+    SymbolRegister *found = table->get_symbol(yylval.sval); // let's get this out of the way
+    // TODO: lacking a while, are we?
+    // TODO: also, lacking variable declarations!
+    // TODO: also, lacking closing '}'
+    // or maybe recursion, but that could be bad
     switch(first) {
+        /* the incrementor and decrementor operators:  *
+         * we have to check for the "twin", and if not *
+         * found the expression makes no sense         */
         case '+':
-            //TODO
-            /* the incrementor and decrementor operators */
-            // we have to repeat the logic, because
-            // we can't invoke nexpr() ... or can we?
-        case '-':
-            //TODO
-            //int type;
-            //return nexp(first,&type);
-            return PARSE_ERR;
+        case '-': 
+            first = yylex();
+            if(first == plus_or_minus) {
+                first = yylex();
+                if(first != ID) {
+                    p_error("the increment operator only works on variables");
+                    return PARSE_ERR;
+                } else if(!(found = table->get_symbol(yylval.sval))) {
+                    sprintf(err_buff,"%s was not previously declared",yylval.sval);
+                    p_error(err_buff);
+                    return PARSE_ERR;
+                } else if(found->get_type() != INT) {
+                    p_error("the decrement/increment operator only works on variables of integer type");
+                    return PARSE_ERR;
+                } else {
+                    // do your increment magic here
+                }
+            } else {
+                sprintf(err_buff,"the only allowed statement that starts with '%c' is a decrement of a variable",
+                        plus_or_minus);
+                p_error(err_buff);
+                return PARSE_ERR;
+            }
         case ID:
-            //TODO
             /* a call or an assignment */
+            int type;
+            if(!found) {
+                sprintf(err_buff,"%s was not previously declared",yylval.sval);
+                p_error(err_buff);
+                return PARSE_ERR;
+            } else if ((type = found->get_type())== FUNC_T) {
+                //in this instance we don't need to check the return type... nobody is expecting it!
+                if(call() == PARSE_ERR)
+                    return PARSE_ERR;
+                break; // will this break out of the switch, or the while?
+            } else if (type == VAR_T || type == ARG_T) { 
+                // look for asignment
+                if(expect(ARROW) == PARSE_ERR)
+                    return PARSE_ERR;
+                //TODO: missing the SCAN possibility... ought to peek one more
+                int expected_ret = found->get_return(),
+                    parsed_ret;
+                if(nexp(-1,&parsed_ret) == PARSE_ERR)
+                    return PARSE_ERR;
+                if(expected_ret != parsed_ret) {
+                    sprintf(err_buff,"trying to assign a %i value to %s, which is of type %i",
+                            parsed_ret,found->get_name(),expected_ret);
+                    p_error(err_buff);
+                    return PARSE_ERR;
+                }
+                break;
+            }
             return PARSE_ERR;
         case IF:
-            //TODO
-            /* include here bexpr, the '{' code '}'  *
-             * logic and the check for ELSE          */
-            return PARSE_ERR;
+            if(bexp(-1) == PARSE_ERR) // check for the condition
+                return PARSE_ERR;
+            if(expect('{') == PARSE_ERR) {
+                p_error("sorry, but conditional statements must be surrounded by curly brackets");
+            }
+            if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                return PARSE_ERR;
+            first = yylex(); // look ahead for ELSE
+            if(first == ELSE) {
+                if(expect('{') == PARSE_ERR) {
+                    p_error("sorry, but conditional statements must be surrounded by curly brackets");
+                }
+                if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                    return PARSE_ERR;
+            }
+            break; // next token already fetched
         case WHILE:
-            //TODO
             /* include here bexpr, the '{' code '}' */
-            return PARSE_ERR;
+            if(bexp(-1) == PARSE_ERR) // check for the condition
+                return PARSE_ERR;
+            if(expect('{') == PARSE_ERR) {
+                p_error("sorry, but conditional statements must be surrounded by curly brackets");
+            }
+            if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                return PARSE_ERR;
+            first = yylex(); // done with this statement
+            break; // next token already fetched
         case PRINT:
-            //TODO
             /* parse '(' parameter* ')' */
-            return PARSE_ERR;
+            /* or... could I just use call()? as long as it processes the arguments correctly...
+             * if it becomes hellish to put the arguments into the object, just copy the code */
+            if(call() == PARSE_ERR)
+                return PARSE_ERR;
+            first = yylex(); // done with this statement
         case RET:
             /* several things here:
              * -check for parameter, and for type correctness *
@@ -356,17 +417,35 @@ int code(int ret) {
              *    -if not found, print error and iterate      *
              *    through tokens until one is found (doing    *
              *    nothing with them) and see what happens     */
-            //TODO
-            //if(no params) {
-            if(ret != VOID) {
-                sprintf(err_buff,"missing return value on non void function!");
-                p_error(err_buff);
-                return PARSE_ERR;
+            if(ret == VOID) {
+                if(expect('}') == PARSE_ERR) {
+                    p_error("returning something in a void function!");
+                    return PARSE_ERR;
+                }
+            } else {
+                first = yylex();
+                if(first == ID) { // identifier or call?
+                    found = table->get_symbol(yylval.sval);
+                    if(!found) {
+                        sprintf(err_buff,"%s was not previously declared",yylval.sval);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    } else if(found->get_return() != ret) { // return type coherence check
+                        sprintf(err_buff,"expected %i return type: %s is of %i type",
+                                ret,found->get_name(),found->get_return());
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    } else if(found->get_type()== FUNC_T) {
+                        if(call() == PARSE_ERR)
+                            return PARSE_ERR;
+                        break;
+                    } else { // ARG_T / VAR_T, but we don't quite care
+                        break;
+                    }
+                } else if(expression(first) == PARSE_ERR) // also, gotta check return type
+                    return PARSE_ERR;
+                return PARSE_OK;
             }
-            //}
-            if(drop_until_brace() == PARSE_ERR)
-                return PARSE_ERR;
-            return PARSE_OK;
         case EXIT:
             /* drop_until_brace takes care of things and effectively
              * consumes the closing bracket (if found)*/
@@ -384,60 +463,55 @@ int code(int ret) {
 }
 
 /*
- * -Previous token: {ID | numb | call | operator}
- * -Receives: 
- * -Lookahead: 1
- * -Description:
- *  */
-/*
- * Previous token: 
- * Description:
+ * Previous token: ?
+ * Description: parses an expression and
+ * computes return type
  * Args: 
- * Lookahead:
+ *   - *ret_type: stores the return type
+ *   of the expression
+ * Lookahead: ?
  * Eq. rule:
- *
+ *      *check the grammar file
  */
-int nexp(int prev,int *ret_type) {
+int nexp(int prev, int *ret_type) {
     //TODO: compute return type (well shitttt)
+    int func_or_var;
+    SymbolRegister *got = NULL;
     switch(prev) {
         case INT_N:
+            *ret_type = INT;
+            return PARSE_OK;
         case FLO_N:
-            return PARSE_OK; // not quite... or yes?
+            *ret_type = FLOAT;
+            return PARSE_OK;
             /* explanation: returns OK so that the parser
              * will complain at the next error, if any    */
         case ID:
-            {
-                SymbolRegister *got = table->get_symbol(yylval.sval);
-                if(!got) { /* not even in the table */
-                    sprintf(err_buff,"%s was not declared",yylval.sval);
-                    p_error(err_buff);
-                    return PARSE_ERR;
-                } else { /* in the table: let's check type */
-                    int type = got->get_type();
-                    /* -- take value of identifier -- */
-                    if(type == VAR_T || type == ARG_T) { /* var/arg? */
-                        unsigned int level = got->get_level();
-                        if(level != table->get_scope() && level != 0) { /* is it from this scope?
-                                                                         * scope 0 means global  */
-                            sprintf(err_buff,"%s was not declared in this scope",yylval.sval);
-                            p_error(err_buff);
-                            return PARSE_ERR;
-                        } /* var/arg in the scope */
-                        return PARSE_OK;
-                    }
-                    /* -- take return from call -- */
-                    else if(type == FUNC_T) { /* found a function */
-                        /* check the call */
-                        if(call() == PARSE_ERR)
-                            return PARSE_ERR;
-                    }
-                    return PARSE_OK; // same reasoning as with constants
-                }
+            got = table->get_symbol(yylval.sval);
+            if(!got) { /* not even in the table */
+                sprintf(err_buff,"%s was not declared",yylval.sval);
+                p_error(err_buff);
                 return PARSE_ERR;
+            } else { /* in the table: let's check type */
+                *ret_type = got->get_return(); // we can get this now
+                func_or_var = got->get_type();
+                /* -- take value of identifier -- */
+                if(func_or_var == VAR_T || func_or_var == ARG_T) { /* var/arg? */
+                    // do womething about the type
+                    return PARSE_OK;
+                }
+                /* -- take return from call -- */
+                else if(func_or_var == FUNC_T) { /* found a function */
+                    /* check the call */
+                    if(call() == PARSE_ERR)
+                        return PARSE_ERR;
+                    // do something with the type
+                }
+                return PARSE_OK;
             }
         default:
             /* very ugly solution to use the default case, but  *
-             * it simplifies a lot the checking of the token    */
+             * it allows for a more decent error message        */
             if(!is_num_oper(prev)) {
                 sprintf(err_buff,"unexpected token %s; expected operator",yytext);
                 p_error(err_buff);
@@ -465,18 +539,15 @@ int nexp(int prev,int *ret_type) {
 }
 
 /*
- * -Previous token: {ID | numb | call | operator}
- * -Receives: 
- * -Lookahead: 1
- * -Description:
- *  */
-/*
- * Previous token: 
- * Description:
+ * Previous token: ?
+ * Description: parses an expression and
+ * computes return type
  * Args: 
- * Lookahead:
+ *   - *ret_type: stores the return type
+ *   of the expression
+ * Lookahead: ?
  * Eq. rule:
- *
+ *      *check the grammar file
  */
 int bexp(int prev) {
     switch(prev) {
@@ -519,7 +590,7 @@ int bexp(int prev) {
             // holy fuck here we go
             // we need to peek to determine whether we deal with a nexpr or a bexpr
             // next triggers for b:
-            //      - is_bool_oper
+            //      - is_logic_oper
             //      - call returning bool
             //      - bool literal
             // next triggers for n:
@@ -539,19 +610,13 @@ int bexp(int prev) {
 }
 
 /*
- * -Previous token: {type}
- * -Receives: the type of the argument
- * -Lookahead: 1
- * -Description: 
- * {type} ':' ID
- * */
-/*
- * Previous token: 
- * Description:
- * Args: 
- * Lookahead:
+ * Previous token: {type}
+ * Description: fairly trivial
+ * Args:
+ *   - prev: the argument type
+ * Lookahead: 1
  * Eq. rule:
- *
+ *      {type} ':' ID
  */
 int argument(int prev) {
     /* lex has been called already! */
@@ -579,11 +644,11 @@ int argument(int prev) {
  * Description: checks for passed params and checks
  * each param's type against correspondant function
  * argument
- * Args:
+ * Args: none
  * Lookahead: 1
  * Eq. rule:
  *      [ID] '(' parameter* ')'
- * Special return: function return type
+ * Special return: function return type (rly? better just int*)
  */
 int call() {
     //TODO: calls must return something, right?
