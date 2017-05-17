@@ -43,13 +43,14 @@ SymbolTable *table = new SymbolTable();
 // useful for debugging
 void verbose(const char* msg) {
     char buffer[256] = "";
-    sprintf(buffer,"parser@%i: " BLUE "\"%s\"" CLEAR_FORMAT "\n", line, msg);
+    sprintf(buffer,"parser@%i: " BLUE "%s" CLEAR_FORMAT "\n", line, msg);
     fprintf(stdout,buffer);
+    fflush(stdout);
 }
 
 // formats error messages
 void p_error(const char* msg) {
-    fprintf(stderr,"parser@%i: syntax error " RED "\"%s\"" CLEAR_FORMAT "\n" ,line,msg);
+    fprintf(stderr,"parser@%i: syntax error " RED "%s" CLEAR_FORMAT "\n" ,line,msg);
 }
 
 // oneliner for checking if token is type keyword
@@ -64,7 +65,6 @@ bool is_type(int token) {
         token == DOUBLE  ||
         token == BOOL  ||
         token == VOID;
-    //TODO: are bool and void not types?
 }
 
 // oneliner for checking if token is a numeric operator
@@ -94,8 +94,8 @@ int expect(int expected, bool type=false) {
     int next = yylex();
     if(type) { // ignore expected
         if(!is_type(next)) {
-            sprintf(err_buff,"unexpected token %s (code %i); expected a type",
-                    yytext,next);
+            sprintf(err_buff,"(%i)unexpected token %s (code %i); expected a type",
+                    __LINE__,yytext,next);
             p_error(err_buff);
             if(yytext) free(yytext);
             return PARSE_ERR;
@@ -103,8 +103,8 @@ int expect(int expected, bool type=false) {
         return next; // type
     }
     else if(next != expected) {
-        sprintf(err_buff,"unexpected token %s (code %i); expected %i",
-                yytext,next,expected);
+        sprintf(err_buff,"(%i)unexpected token %s (code %i); expected %i",
+                __LINE__,yytext,next,expected);
         p_error(err_buff);
         if(yytext) free(yytext);
         return PARSE_ERR;
@@ -139,11 +139,15 @@ int expression(int prev) {
 /*==============================================*/
 
 int main(int argc, char *argv[]) {
-    //TODO
     if(argc>1)
         if((yyin = fopen(argv[1],"r")) == NULL)
             return -1;
     verbose("diving into the parse tree");
+    int ret = start();
+
+    fflush(stdout);
+    printf("return: %i\nState of the symbol table:\n",ret);
+    table->print();
     return start();
 }
 
@@ -174,7 +178,9 @@ int program() {
     int next = yylex(), peek;
     while(next != MAIN) {
         /* verify declaration correct */
+        verbose("still not main");
         if(is_type(next)) {
+            verbose("perceived type keyword");
             if(declaration(next,&peek) == PARSE_ERR)
                 return PARSE_ERR;
             next = peek; // in declaration we looked +1 ahead
@@ -182,6 +188,7 @@ int program() {
         }
         /* verify definition correct */
         else if(next == FUNC) {
+            verbose("perceived function keyword");
             if(definition() == PARSE_ERR)
                 return PARSE_ERR;
             next = yylex();
@@ -189,8 +196,8 @@ int program() {
         }
         /* not main and not the previous */
         else {
-            sprintf(err_buff,"unexpected token %s (code %i)",
-                    yytext,next);
+            sprintf(err_buff,"(%i)unexpected token %s (code %i)",
+                    __LINE__,yytext,next);
             p_error(err_buff);
             return PARSE_ERR;
         }
@@ -215,7 +222,7 @@ int declaration(int prev, int *looked) {
         return PARSE_ERR;
 
     //TODO: fix
-    table->store_symbol(prev, VAR_T, 0, yylval.sval);
+    table->store_symbol(VAR_T, prev, 0, yylval.sval);
 
     next = yylex();
     if(next != ARROW) {
@@ -236,16 +243,21 @@ int declaration(int prev, int *looked) {
  */
 int definition() {
     int ret,next,num_args=0;
+
     if(expect(ID) == PARSE_ERR) //identifier
         return PARSE_ERR;
+    verbose("processed: identifier");
     /* save the name */
     char *name = strdup(yylval.sval);
+    verbose(name);
 
     if(expect(':') == PARSE_ERR) //:
         return PARSE_ERR;
+    verbose("processed: ':'");
 
     if((ret = expect(0,true)) == PARSE_ERR) //type
         return PARSE_ERR;
+    verbose("processed: return type");
 
     if(expect(ARROW) == PARSE_ERR) //<-
         return PARSE_ERR;
@@ -253,15 +265,16 @@ int definition() {
     /* ambiguity! */
     next = yylex();
     while(next != '{') { /* still not the code */
+        verbose("processed: argument");
         if(argument(next) == PARSE_ERR)
             return PARSE_ERR;
         num_args++;
         next = yylex();
     }
     // everything ok up to here, so we register the function
-    func_counter++;
+    table->set_scope(++func_counter);
     //TODO: set the correct scope (or number) of the function
-    table->store_symbol(ret, FUNC_T, num_args, name);
+    table->store_symbol(FUNC_T, ret, num_args, name);
 
     return code(ret);
 }
@@ -307,7 +320,6 @@ int mn() {
  *      '{' {better see the grammar for this rule} '}'
  */
 int code(int ret) {
-    //TODO
     int first = yylex();
     int plus_or_minus = first; // if we save the + / - we can avoid repeating their code twice
     SymbolRegister *found = table->get_symbol(yylval.sval); // let's get this out of the way
@@ -315,149 +327,168 @@ int code(int ret) {
     // TODO: also, lacking variable declarations!
     // TODO: also, lacking closing '}'
     // or maybe recursion, but that could be bad
-    switch(first) {
-        /* the incrementor and decrementor operators:  *
-         * we have to check for the "twin", and if not *
-         * found the expression makes no sense         */
-        case '+':
-        case '-': 
-            first = yylex();
-            if(first == plus_or_minus) {
+    while(first != '}') {
+    sprintf(err_buff,"next statement: starts with %s",yytext);
+    verbose(err_buff);
+        switch(first) {
+            /* the incrementor and decrementor operators:  *
+             * we have to check for the "twin", and if not *
+             * found the expression makes no sense         */
+            case '+':
+            case '-': 
                 first = yylex();
-                if(first != ID) {
-                    p_error("the increment operator only works on variables");
-                    return PARSE_ERR;
-                } else if(!(found = table->get_symbol(yylval.sval))) {
-                    sprintf(err_buff,"%s was not previously declared",yylval.sval);
-                    p_error(err_buff);
-                    return PARSE_ERR;
-                } else if(found->get_type() != INT) {
-                    p_error("the decrement/increment operator only works on variables of integer type");
-                    return PARSE_ERR;
+                if(first == plus_or_minus) {
+                    first = yylex();
+                    if(first != ID) {
+                        sprintf(err_buff,"(%i)the increment operator only works on variables",
+                                __LINE__);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    } else if(!(found = table->get_symbol(yylval.sval))) {
+                        sprintf(err_buff,"(%i)%s was not previously declared",
+                                __LINE__,yylval.sval);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    } else if(found->get_type() != INT) {
+                        sprintf(err_buff,"(%i)the decrement/increment operator only works on variables of integer type",
+                                __LINE__);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    } else {
+                        // do your increment magic here
+                    }
                 } else {
-                    // do your increment magic here
-                }
-            } else {
-                sprintf(err_buff,"the only allowed statement that starts with '%c' is a decrement of a variable",
-                        plus_or_minus);
-                p_error(err_buff);
-                return PARSE_ERR;
-            }
-        case ID:
-            /* a call or an assignment */
-            int type;
-            if(!found) {
-                sprintf(err_buff,"%s was not previously declared",yylval.sval);
-                p_error(err_buff);
-                return PARSE_ERR;
-            } else if ((type = found->get_type())== FUNC_T) {
-                //in this instance we don't need to check the return type... nobody is expecting it!
-                if(call() == PARSE_ERR)
-                    return PARSE_ERR;
-                break; // will this break out of the switch, or the while?
-            } else if (type == VAR_T || type == ARG_T) { 
-                // look for asignment
-                if(expect(ARROW) == PARSE_ERR)
-                    return PARSE_ERR;
-                //TODO: missing the SCAN possibility... ought to peek one more
-                int expected_ret = found->get_return(),
-                    parsed_ret;
-                if(nexp(-1,&parsed_ret) == PARSE_ERR)
-                    return PARSE_ERR;
-                if(expected_ret != parsed_ret) {
-                    sprintf(err_buff,"trying to assign a %i value to %s, which is of type %i",
-                            parsed_ret,found->get_name(),expected_ret);
+                    sprintf(err_buff,"(%i)the only allowed statement that starts with '%c' is a decrement of a variable",
+                            __LINE__,plus_or_minus);
                     p_error(err_buff);
                     return PARSE_ERR;
                 }
-                break;
-            }
-            return PARSE_ERR;
-        case IF:
-            if(bexp(-1) == PARSE_ERR) // check for the condition
+            case ID:
+                /* a call or an assignment */
+                int type;
+                if(!found) {
+                    sprintf(err_buff,"(%i)%s was not previously declared",
+                            __LINE__,yylval.sval);
+                    p_error(err_buff);
+                    return PARSE_ERR;
+                } else if ((type = found->get_type())== FUNC_T) {
+                    //in this instance we don't need to check the return type... nobody is expecting it!
+                    if(call() == PARSE_ERR)
+                        return PARSE_ERR;
+                    break; // will this break out of the switch, or the while?
+                } else if (type == VAR_T || type == ARG_T) { 
+                    // look for asignment
+                    if(expect(ARROW) == PARSE_ERR)
+                        return PARSE_ERR;
+                    //TODO: missing the SCAN possibility... ought to peek one more
+                    int expected_ret = found->get_return(),
+                        parsed_ret;
+                    if(nexp(-1,&parsed_ret) == PARSE_ERR)
+                        return PARSE_ERR;
+                    if(expected_ret != parsed_ret) {
+                        sprintf(err_buff,"(%i)trying to assign a %i value to %s, which is of type %i",
+                                __LINE__,parsed_ret,found->get_name(),expected_ret);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    }
+                    break;
+                }
                 return PARSE_ERR;
-            if(expect('{') == PARSE_ERR) {
-                p_error("sorry, but conditional statements must be surrounded by curly brackets");
-            }
-            if(code(-1) == PARSE_ERR) // consumes the closing '}'
-                return PARSE_ERR;
-            first = yylex(); // look ahead for ELSE
-            if(first == ELSE) {
+            case IF:
+                if(bexp(-1) == PARSE_ERR) // check for the condition
+                    return PARSE_ERR;
                 if(expect('{') == PARSE_ERR) {
                     p_error("sorry, but conditional statements must be surrounded by curly brackets");
                 }
                 if(code(-1) == PARSE_ERR) // consumes the closing '}'
                     return PARSE_ERR;
-            }
-            break; // next token already fetched
-        case WHILE:
-            /* include here bexpr, the '{' code '}' */
-            if(bexp(-1) == PARSE_ERR) // check for the condition
-                return PARSE_ERR;
-            if(expect('{') == PARSE_ERR) {
-                p_error("sorry, but conditional statements must be surrounded by curly brackets");
-            }
-            if(code(-1) == PARSE_ERR) // consumes the closing '}'
-                return PARSE_ERR;
-            first = yylex(); // done with this statement
-            break; // next token already fetched
-        case PRINT:
-            /* parse '(' parameter* ')' */
-            /* or... could I just use call()? as long as it processes the arguments correctly...
-             * if it becomes hellish to put the arguments into the object, just copy the code */
-            if(call() == PARSE_ERR)
-                return PARSE_ERR;
-            first = yylex(); // done with this statement
-        case RET:
-            /* several things here:
-             * -check for parameter, and for type correctness *
-             * -also, throw error if func is not VOID and no  *
-             *  parameters are found                          *
-             * -check for '}': ret is final to a code block   *
-             *    -if not found, print error and iterate      *
-             *    through tokens until one is found (doing    *
-             *    nothing with them) and see what happens     */
-            if(ret == VOID) {
-                if(expect('}') == PARSE_ERR) {
-                    p_error("returning something in a void function!");
-                    return PARSE_ERR;
-                }
-            } else {
-                first = yylex();
-                if(first == ID) { // identifier or call?
-                    found = table->get_symbol(yylval.sval);
-                    if(!found) {
-                        sprintf(err_buff,"%s was not previously declared",yylval.sval);
-                        p_error(err_buff);
-                        return PARSE_ERR;
-                    } else if(found->get_return() != ret) { // return type coherence check
-                        sprintf(err_buff,"expected %i return type: %s is of %i type",
-                                ret,found->get_name(),found->get_return());
-                        p_error(err_buff);
-                        return PARSE_ERR;
-                    } else if(found->get_type()== FUNC_T) {
-                        if(call() == PARSE_ERR)
-                            return PARSE_ERR;
-                        break;
-                    } else { // ARG_T / VAR_T, but we don't quite care
-                        break;
+                first = yylex(); // look ahead for ELSE
+                if(first == ELSE) {
+                    if(expect('{') == PARSE_ERR) {
+                        p_error("sorry, but conditional statements must be surrounded by curly brackets");
                     }
-                } else if(expression(first) == PARSE_ERR) // also, gotta check return type
+                    if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                        return PARSE_ERR;
+                }
+                break; // next token already fetched
+            case WHILE:
+                /* include here bexpr, the '{' code '}' */
+                if(bexp(-1) == PARSE_ERR) // check for the condition
+                    return PARSE_ERR;
+                if(expect('{') == PARSE_ERR) {
+                    p_error("sorry, but conditional statements must be surrounded by curly brackets");
+                }
+                if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                    return PARSE_ERR;
+                first = yylex(); // done with this statement
+                break; // next token already fetched
+            case PRINT:
+                /* parse '(' parameter* ')' */
+                /* or... could I just use call()? as long as it processes the arguments correctly...
+                 * if it becomes hellish to put the arguments into the object, just copy the code */
+                if(call() == PARSE_ERR)
+                    return PARSE_ERR;
+                first = yylex(); // done with this statement
+            case RET:
+                /* several things here:
+                 * -check for parameter, and for type correctness *
+                 * -also, throw error if func is not VOID and no  *
+                 *  parameters are found                          *
+                 * -check for '}': ret is final to a code block   *
+                 *    -if not found, print error and iterate      *
+                 *    through tokens until one is found (doing    *
+                 *    nothing with them) and see what happens     */
+                if(ret == VOID) {
+                    if(expect('}') == PARSE_ERR) {
+                        sprintf(err_buff,"(%i)returning something in a void function!",__LINE__);
+                        p_error(err_buff);
+                        return PARSE_ERR;
+                    }
+                    return PARSE_OK;
+                } else {
+                    first = yylex();
+                    if(first == ID) { // identifier or call?
+                        found = table->get_symbol(yylval.sval);
+                        if(!found) {
+                            sprintf(err_buff,"(%i)%s was not previously declared",
+                                    __LINE__,yylval.sval);
+                            p_error(err_buff);
+                            return PARSE_ERR;
+                        } else if(found->get_return() != ret) { // return type coherence check
+                            sprintf(err_buff,"(%i)expected %i return type: %s is of %i type",
+                                    __LINE__,ret,found->get_name(),found->get_return());
+                            p_error(err_buff);
+                            return PARSE_ERR;
+                        } else if(found->get_type()== FUNC_T) {
+                            if(call() == PARSE_ERR)
+                                return PARSE_ERR;
+                            break;
+                        } else { // ARG_T / VAR_T, but we don't quite care
+                            break;
+                        }
+                    } else if(expression(first) == PARSE_ERR) // also, gotta check return type
+                        return PARSE_ERR;
+                    return PARSE_OK;
+                }
+            case EXIT:
+                /* drop_until_brace takes care of things and effectively
+                 * consumes the closing bracket (if found)*/
+                if(drop_until_brace() == PARSE_ERR)
                     return PARSE_ERR;
                 return PARSE_OK;
-            }
-        case EXIT:
-            /* drop_until_brace takes care of things and effectively
-             * consumes the closing bracket (if found)*/
-            if(drop_until_brace() == PARSE_ERR)
-                return PARSE_ERR;
-            return PARSE_OK;
-        default: /* epsilon case is actually taken care of beforehand */
-            sprintf(err_buff,"unexpected token %s (code %i)",
-                    yytext,first);
-            p_error(err_buff);
-            return PARSE_ERR;
-
+            default: /* check for variable declarations, and if not, well, wtf */
+                if(!is_type(first)) {
+                    sprintf(err_buff,"(%i)unexpected token %s (code %i)",
+                            __LINE__,yytext,first);
+                    p_error(err_buff);
+                    return PARSE_ERR;
+                }
+                if(declaration(first,&first) == PARSE_ERR)
+                    return PARSE_ERR;
+                sprintf(err_buff,"(%i)token after declaration: %s",
+                        __LINE__,yytext);
+                verbose(err_buff);
+        }
     }
     return PARSE_ERR;
 }
@@ -478,6 +509,8 @@ int nexp(int prev, int *ret_type) {
     int func_or_var;
     SymbolRegister *got = NULL;
     switch(prev) {
+        case ARROW:
+            return nexp(yylex(),ret_type);
         case INT_N:
             *ret_type = INT;
             return PARSE_OK;
@@ -489,7 +522,8 @@ int nexp(int prev, int *ret_type) {
         case ID:
             got = table->get_symbol(yylval.sval);
             if(!got) { /* not even in the table */
-                sprintf(err_buff,"%s was not declared",yylval.sval);
+                sprintf(err_buff,"(%i)%s was not declared",
+                        __LINE__,yylval.sval);
                 p_error(err_buff);
                 return PARSE_ERR;
             } else { /* in the table: let's check type */
@@ -620,19 +654,14 @@ int bexp(int prev) {
  */
 int argument(int prev) {
     /* lex has been called already! */
-    /* save the name */
-    int type;
+    int type = prev;
+
+    if(expect(':') == PARSE_ERR)
+        return PARSE_ERR;
+
+    if(expect(ID) == PARSE_ERR)
+        return PARSE_ERR;
     char *name = strdup(yylval.sval);
-
-    if(expect(':') == PARSE_ERR) {
-        free(name);
-        return PARSE_ERR;
-    }
-
-    if((type = expect(0,true)) == PARSE_ERR) {
-        free(name);
-        return PARSE_ERR;
-    }
 
     table->store_symbol(ARG_T,type,0,name); //TODO: FIX
     free(name);

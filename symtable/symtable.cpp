@@ -87,7 +87,8 @@ char* SymbolRegister::get_name() {
 
 void SymbolRegister::print() {
     char *type = names(this->ret);
-    fprintf(stdout,"%s %s:%s (%i)\n",
+    fprintf(stdout,"(%i)%s %s:%s (%i)\n",
+            this->type,
             (this->type == VAR_T)?"variable":(this->type == FUNC_T)?"function":"argument",
             this->name,
             type,
@@ -131,23 +132,20 @@ void SymbolTable::store_symbol(int type, int ret, int info, char* name) {
     this->size++;
 }
 
-SymbolRegister* SymbolTable::get_symbol(char* name) {
+SymbolRegister* SymbolTable::get_symbol(char* name, unsigned int scope) {
     SymbolRegister* follower = this->head;
 
     while(follower) {
         if(strcmp(follower->get_name(),name) == 0)
-            return follower;
+            if(follower->get_level() == scope)
+                return follower;
         follower = follower->next;
     }
     return NULL;
 }
 
-void SymbolTable::push_scope() {
-    this->scope++;
-}
-
-void SymbolTable::pop_scope() {
-    this->scope--;
+void SymbolTable::set_scope(unsigned int scope) {
+    this->scope = scope;
 }
 
 unsigned int SymbolTable::get_scope() {

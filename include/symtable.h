@@ -44,9 +44,8 @@ public:
     SymbolTable();
     ~SymbolTable();
     void store_symbol(int type, int ret, int info, char* name);
-    SymbolRegister *get_symbol(char* name);
-    void push_scope();
-    void pop_scope();
+    SymbolRegister *get_symbol(char* name, unsigned int scope=0);
+    void set_scope(unsigned int scope);
     unsigned int get_scope();
     void print();
 };
