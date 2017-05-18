@@ -12,7 +12,8 @@
     YYSTYPE yylval;
 
     extern int line;
-    void l_error(const char*,char);
+    void l_error(const char *msg, char c);
+    //void l_verbose(char *msg);
 %}
 
 %option noyywrap
@@ -33,51 +34,55 @@ arrow           "<-"
  /* keywords */
 
  /** type **/
-"seisu"         { return INT;    }
-"naga seisu"    { return LONG;   }
-"nashi seisu"   { return UINT;   }
-"baito"         { return CHAR;   }
-"mojiretsu"     { return STRING; }
-"furotingu"     { return FLOAT;  }
-"daburu"        { return DOUBLE; }
-"shinri"        { return BOOL;   }
-"kyo"           { return VOID;   }
+"seisu"         { l_error(yytext,' ');return INT;    }
+"naga seisu"    { l_error(yytext,' ');return LONG;   }
+"nashi seisu"   { l_error(yytext,' ');return UINT;   }
+"baito"         { l_error(yytext,' ');return CHAR;   }
+"mojiretsu"     { l_error(yytext,' ');return STRING; }
+"furotingu"     { l_error(yytext,' ');return FLOAT;  }
+"daburu"        { l_error(yytext,' ');return DOUBLE; }
+"shinri"        { l_error(yytext,' ');return BOOL;   }
+"kyo"           { l_error(yytext,' ');return VOID;   }
 
  /** control **/
-"naka"      {return WHILE;  }
-"to"        {return IF;     }
-"ta"        {return ELSE;   }
+"naka"      {l_error(yytext,' ');return WHILE;  }
+"to"        {l_error(yytext,' ');return IF;     }
+"ta"        {l_error(yytext,' ');return ELSE;   }
 
  /** structure **/
-"kansu"     {return FUNC;   }
-"kisu"      {return RET;    }
-"omo"       {return MAIN;   }
-"shi"       {return EXIT;   }
+"kansu"     {l_error(yytext,' ');return FUNC;   }
+"kisu"      {l_error(yytext,' ');return RET;    }
+"omo"       {l_error(yytext,' ');return MAIN;   }
+"shi"       {l_error(yytext,' ');return EXIT;   }
 
  /** I/O **/
-"tsutaeru"  {return PRINT;    }
-"uketoru"   {return SCAN;     }
+"tsutaeru"  {l_error(yytext,' ');return PRINT;    }
+"uketoru"   {l_error(yytext,' ');return SCAN;     }
 
  /** special values **/
-"shin"      {yylval.bval = 0; return TRUE;}
-"nise"      {yylval.bval = 1; return FALSE;}
+"shin"      {yylval.bval = 0;l_error(yytext,' ');return TRUE;}
+"nise"      {yylval.bval = 1;l_error(yytext,' ');return FALSE;}
 
  /** assignment **/
-{arrow}     {return ARROW;  }
-
+{arrow}     {l_error(yytext,' ');return ARROW;  }
+              
 [-+*/%=&|!<>{}():]   {return *yytext;}
 
 {letter}{letterdigit}*  {
         yylval.sval = strdup(yytext);
+        l_error(yytext,' ');
         return ID;}
 ("-")?{digit}+  {
         yylval.dval = atoi(yytext);
+        l_error(yytext,' ');
         return INT_N;}
 (("-")?{digit})?+("."){digit}+  {
         yylval.fval = atof(yytext);
+        l_error(yytext,' ');
         return FLO_N;}
 \"(\\.|[^\\"])*\"   {
         yylval.sval = strdup(yytext);
+        l_error(yytext,' ');
         return STR;}
 
 .   {l_error("unrecognized character", *yytext);}
@@ -88,4 +93,8 @@ arrow           "<-"
 
 void l_error(const char* msg, char c) {
     fprintf(stderr, "flex: %i: %c %s\n", line, c, msg);
+}
+
+void l_error(const char* msg) {
+    fprintf(stderr, "flex: %i: %s\n", line, msg);
 }

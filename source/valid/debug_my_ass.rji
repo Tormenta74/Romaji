@@ -1,0 +1,13 @@
+
+kansu f:kyo <- {
+}
+
+omo:kyo <- {
+    seisu i
+    seisu j
+    seisu k
+    seisu l
+    seisu n
+    i <- + 1 2
+    shi
+}

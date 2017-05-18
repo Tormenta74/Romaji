@@ -35,7 +35,7 @@ LEX_C = $(BUILDDIR)/$(FLEXTARGET).yy.c
 LEX_L = $(LEXDIR)/$(FLEXTARGET).l
 
 
-all: before bison_comp
+all: before rdparser_comp
 	@echo "Target \"$(TARGET)\" built. Bailing."
 
 before:

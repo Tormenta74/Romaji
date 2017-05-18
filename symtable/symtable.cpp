@@ -87,12 +87,12 @@ char* SymbolRegister::get_name() {
 
 void SymbolRegister::print() {
     char *type = names(this->ret);
-    fprintf(stdout,"(%i)%s %s:%s (%i)\n",
-            this->type,
+    fprintf(stdout,"%s %s:%s (%i) - scope %i\n",
             (this->type == VAR_T)?"variable":(this->type == FUNC_T)?"function":"argument",
             this->name,
             type,
-            this->info);
+            this->info,
+            this->level);
     free(type);
 }
 
@@ -119,6 +119,10 @@ SymbolTable::~SymbolTable() {
 }
 
 void SymbolTable::store_symbol(int type, int ret, int info, char* name) {
+    if(this->get_symbol(name,this->scope)
+            || this->get_symbol(name,0)) {
+        throw "symbol already declared";
+    }
     SymbolRegister* second = this->head;
     SymbolRegister* new_reg;
     try {
