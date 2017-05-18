@@ -1,8 +1,5 @@
 
-kansu f:kyo <- {
-}
-
-omo:kyo <- {
+omo:kyo {
     seisu i
     seisu j
     seisu k
