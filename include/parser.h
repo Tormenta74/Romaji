@@ -22,7 +22,7 @@ int argument(int);
 int code(int);
 int call();
 //int parameters() // replaced by for loop;
-int parameter(int*);
+int parameter(int,int*);
 
 
 #endif

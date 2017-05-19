@@ -190,14 +190,13 @@ int expression(int prev, int *ret_type) {
 
 
 /*==============================================*/
-/** ** **         MAIN FUNCTION          ** ** **/
+/** ** ** ** **   MAIN FUNCTION    ** ** ** ** **/
 /*==============================================*/
 
 int main(int argc, char *argv[]) {
     if(argc>1)
         if((yyin = fopen(argv[1],"r")) == NULL)
             return -1;
-    verbose("diving into the parse tree");
     int ret = start();
 
     fflush(stdout);
@@ -205,11 +204,11 @@ int main(int argc, char *argv[]) {
         printf(BOLD GREEN "Holy shit, it compiled!\n" CLEAR_FORMAT);
     printf("return: %i\nState of the symbol table:\n",ret);
     table->print();
-    return 0;
+    return ret;
 }
 
 /*==============================================*/
-/** ** **        RULE FUNCTIONS          ** ** **/
+/** ** ** ** **  RULE FUNCTIONS ** ** ** ** ** **/
 /*==============================================*/
 
 /*
@@ -218,6 +217,7 @@ int main(int argc, char *argv[]) {
  */
 int start() {
     /* TODO: code generation in this line */
+    verbose("Entry point: object file initialized*");
     return program();
     /* and this one */
 }
@@ -239,7 +239,7 @@ int program() {
             verbose("program: perceived type keyword");
             if(declaration(next,&peek) == PARSE_ERR)
                 return PARSE_ERR;
-            next = peek; // in declaration we looked +1 ahead
+            next = peek; // in declaration we peeked +1 ahead
         }
 
         /* verify definition correct */
@@ -265,12 +265,12 @@ int program() {
  * identifier and optionally an asignment. in
  * order to figure out if an assignment is next,
  * it consumes one extra token, which is stored in
- * *looked.
+ * *peeked.
  * Lookahead: 2
  * Eq. rule:
  *      {type} ID ("<-" nexp)?
  */
-int declaration(int prev, int *looked) {
+int declaration(int prev, int *peeked) {
     int next, expected_type = prev, parsed_type;
     char *name;
 
@@ -284,7 +284,7 @@ int declaration(int prev, int *looked) {
     next = yylex();
     verbose("declaration: token after id is %s",yytext);
     if(next != ARROW) {
-        *looked = next;
+        *peeked = next;
         try {
             table->store_symbol(VAR_T, expected_type, 0, name);
         } catch(const char* msg) {
@@ -317,7 +317,7 @@ int declaration(int prev, int *looked) {
     }
     verbose("assignment: symbol %s successfully stored",name);
     free(name);
-    *looked = yylex();
+    *peeked = yylex();
     return PARSE_OK;
 }
 
@@ -421,6 +421,7 @@ int mn() {
 int code(int ret) {
     int next = yylex(), func_or_var, type;
     int plus_or_minus = next; // if we save the + / - we can avoid repeating their code twice
+    int actual_ret = ret; // relevant in the RET case
     SymbolRegister *reg = NULL;
     while(next != '}') {
         verbose("code: next statement starts with %s",yytext);
@@ -499,30 +500,35 @@ int code(int ret) {
                     }
                 }
             case IF:
-                if(bexp(-1) == PARSE_ERR) // check for the condition
+                next = yylex();
+                if(bexp(next) == PARSE_ERR) // check for the condition
                     return PARSE_ERR;
                 if(expect('{') == PARSE_ERR) {
                     error("code: sorry, but conditional statements must be surrounded by curly brackets");
                 }
-                if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                // this is a complication... VOID type? what if we perceive a kisu?
+                if(code(ret*1000) == PARSE_ERR) // consumes the closing '}'
                     return PARSE_ERR;
                 next = yylex(); // look ahead for ELSE
                 if(next == ELSE) {
+                    verbose("code: perceived ELSE after IF");
                     if(expect('{') == PARSE_ERR) {
                         error("code: sorry, but conditional statements must be surrounded by curly brackets");
                     }
-                    if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                    if(code(ret*1000) == PARSE_ERR) // consumes the closing '}' // does it??
                         return PARSE_ERR;
+                    next = yylex();
                 }
                 break; // next token already fetched
             case WHILE:
                 /* include here bexpr, the '{' code '}' */
-                if(bexp(-1) == PARSE_ERR) // check for the condition
+                next = yylex();
+                if(bexp(next) == PARSE_ERR) // check for the condition
                     return PARSE_ERR;
                 if(expect('{') == PARSE_ERR) {
                     error("code: sorry, but conditional statements must be surrounded by curly brackets");
                 }
-                if(code(-1) == PARSE_ERR) // consumes the closing '}'
+                if(code(ret*1000) == PARSE_ERR) // consumes the closing '}'
                     return PARSE_ERR;
                 next = yylex(); // done with this statement
                 break; // next token already fetched
@@ -533,6 +539,7 @@ int code(int ret) {
                 if(call() == PARSE_ERR)
                     return PARSE_ERR;
                 next = yylex(); // done with this statement
+                break;
             case RET:
                 /* several things here:
                  * -check for parameter, and for type correctness *
@@ -543,7 +550,12 @@ int code(int ret) {
                  *    through tokens until one is found (doing    *
                  *    nothing with them) and see what happens     */
                 int parsed_ret;
-                if(ret == VOID) {
+                while(actual_ret > 1000) {// we are actually inside a conditional code block
+                    verbose("we are actually inside a conditional guarded code block (ret = %i > 1000)",ret);
+                    actual_ret = actual_ret / 1000;
+                }
+
+                if(actual_ret == VOID) {
                     if(expect('}') == PARSE_ERR) {
                         p_error("code: returning something in a void function!");
                         return PARSE_ERR;
@@ -557,9 +569,9 @@ int code(int ret) {
                             error("code: %s was not previously declared",
                                     yylval.sval);
                             return PARSE_ERR;
-                        } else if(type != ret) { // return type coherence check
+                        } else if(type != actual_ret) { // return type coherence check
                             error("code: expected %i return type: %s is of %i type",
-                                    ret,reg->get_name(),type);
+                                    actual_ret,reg->get_name(),type);
                             return PARSE_ERR;
                         } else if(func_or_var == FUNC_T) {
                             verbose("code: returning a function call");
@@ -577,9 +589,9 @@ int code(int ret) {
                     /* expression */
                     else if(expression(next,&parsed_ret) == PARSE_ERR) {
                         return PARSE_ERR;
-                    } else if(parsed_ret != ret) {
+                    } else if(parsed_ret != actual_ret) {
                         error("expression returns type %i, when function returns type %i",
-                                parsed_ret,ret);
+                                parsed_ret,actual_ret);
                         return PARSE_ERR;
                     }
                     verbose("code: returning an expression!");
@@ -701,12 +713,8 @@ int nexp(int prev, int *ret_type) {
  */
 int bexp(int prev) {
     SymbolRegister *reg = NULL;
-    int func_or_var, type;
+    int func_or_var, type, operand_type, peek;
     switch(prev) {
-        case -1:
-            // previous is the control structure calling
-            break; // or do I want to fallthrough?
-            // probably need to place it somewhere else
         case TRUE:
         case FALSE:
             return PARSE_OK;
@@ -725,18 +733,89 @@ int bexp(int prev) {
             }
             return PARSE_OK;
 
+        case '!':
+            peek = yylex();
+            if(bexp(peek) == PARSE_ERR) {
+                error("bexp: unable to parse logical expression after '!'");
+                return PARSE_ERR;
+            }
+            return PARSE_OK;
             /* the easy ones (they only apply to boolean expressions)*/
         case '&':
         case '|':
             // parse 2 b expressions
-            return PARSE_ERR;
+            peek = yylex();
+            if(bexp(peek) == PARSE_ERR) {
+                error("bexp: unable to parse first operand of logical '%c'",prev);
+                return PARSE_ERR;
+            }
+            if(bexp(yylex()) == PARSE_ERR) {
+                error("bexp: unable to parse second operand of logical '%c'",prev);
+                return PARSE_ERR;
+            }
+            return PARSE_OK;
         case '=':
-            return PARSE_ERR;
+            //peek = yylex();
+            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
+                error("bexp: unable to parse first operand of comparison");
+                return PARSE_ERR;
+            }
+            verbose("bexp: first operand of comparison parsed");
+            type = operand_type;
+            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
+                error("bexp: unable to parse second operand of comparison");
+                return PARSE_ERR;
+            }
+            if(operand_type != type) {
+                error("bexp: comparison operands do not match in type: %i and %i",
+                        type, operand_type);
+                return PARSE_ERR;
+            }
+            return PARSE_OK;
         case '>':
-            // check for '='
-            return PARSE_ERR;
         case '<':
             // check for '='
+            peek = yylex();
+            if(peek == '=') {
+                verbose("bexp: '%c%c'",prev,peek);
+                peek = yylex();
+                if(nexp(peek,&operand_type) == PARSE_ERR) {
+                    error("bexp: unable to parse first operand of comparison");
+                    return PARSE_ERR;
+                }
+                verbose("bexp: first operand of comparison parsed");
+                type = operand_type;
+                if(nexp(yylex(),&operand_type) == PARSE_ERR) {
+                    error("bexp: unable to parse second operand of comparison");
+                    return PARSE_ERR;
+                }
+                if(operand_type != type) {
+                    error("bexp: comparison operands do not match in type: %i and %i",
+                            type, operand_type);
+                    return PARSE_ERR;
+                }
+                verbose("bexp: second operand of comparison parsed");
+                return PARSE_OK;
+            } else {
+                verbose("bexp: '%c'",prev);
+                if(nexp(peek,&operand_type) == PARSE_ERR) {
+                    error("bexp: unable to parse first operand of comparison");
+                    return PARSE_ERR;
+                }
+                verbose("bexp: first operand of comparison parsed");
+                type = operand_type;
+                if(nexp(yylex(),&operand_type) == PARSE_ERR) {
+                    error("bexp: unable to parse second operand of comparison");
+                    return PARSE_ERR;
+                }
+                verbose("bexp: second operand of comparison parsed");
+                if(operand_type != type) {
+                    error("bexp: comparison operands do not match in type: %i and %i",
+                            type, operand_type);
+                    return PARSE_ERR;
+                }
+                return PARSE_OK;
+            }
             return PARSE_ERR;
     }
     return PARSE_ERR;
@@ -777,7 +856,7 @@ int argument(int prev) {
 }
 
 /*
- * Previous token: ID (already verified as function)
+ * Previous token: ID|tsutaeru (already verified as function)
  * Description: checks for passed params and checks
  * each param's type against correspondant function
  * argument
@@ -791,14 +870,18 @@ int call() {
     if(expect('(') == PARSE_ERR)
         return PARSE_ERR;
     // ambiguity! in the number of arguments so count them
-    int param_count = 0, of_type, next = yylex();
+    int param_count = 0, of_type, next;
+    next = yylex();
     while(next != ')') {
         /* just let the parameter() function take 
          * care of it, then check param type */
-        if(parameter(&of_type) == PARSE_ERR)
+        if(parameter(next,&of_type) == PARSE_ERR)
             return PARSE_ERR;
+        verbose("call: parsed a %i type parameter",of_type);
         param_count++;
+        next = yylex();
     }
+    verbose("call: parsed %i parameters",param_count);
     return PARSE_OK;
 }
 
@@ -812,17 +895,17 @@ int call() {
  * Eq. rule:
  *      STR | nexp | bexp
  */
-int parameter(int *type) {
-    int next = yylex();
+int parameter(int prev, int *type) {
+    //int next = yylex();
     /* note: this block is actually significant to the 
      * language spec, since we are basically saying that
      * no operations can be performed on string literals,
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
-    if(next == STR) {
+    if(prev == STR) {
         *type = STR;
         return PARSE_OK;
     } else
-        return expression(next,type);
+        return expression(prev,type);
 }
 

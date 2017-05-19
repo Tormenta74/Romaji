@@ -1,11 +1,10 @@
-kansu f:seisu <- seisu:a {
-    kisu a
-}
-
-kansu g:shinri <- {
-    kisu shin
-}
-
-omo:kyo {
+omo:kyo
+{
+    seisu i <- 18
+    to < 1 21 {
+        tsutaeru ("Get out of the bar")
+    } ta {
+        tsutaeru ("Watcha wanna drink?")
+    }
     shi
 }
