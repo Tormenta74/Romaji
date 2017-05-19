@@ -1,6 +1,6 @@
 omo:kyo
 {
-    seisu i <- 18
+    seisu i <- uketoru
     to < 1 21 {
         tsutaeru ("Get out of the bar")
     } ta {

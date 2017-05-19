@@ -284,40 +284,57 @@ int declaration(int prev, int *peeked) {
     next = yylex();
     verbose("declaration: token after id is %s",yytext);
     if(next != ARROW) {
+        verbose("declaration: no-assignment");
         *peeked = next;
-        try {
-            table->store_symbol(VAR_T, expected_type, 0, name);
-        } catch(const char* msg) {
-            p_error(msg);
-            return PARSE_ERR;
-        }
-
-        verbose("no-assignment: symbol %s successfully stored",name);
-        return PARSE_OK;
+        goto store_and_exit;
     }
 
-    /* next is arrow, a.k.a. useless here */
+    verbose("declaration: perceived arrow");
+    // next is arrow, a.k.a. useless here
     next = yylex();
     verbose("declaration: token after arrow is %s",yytext);
-    if(nexp(next,&parsed_type) == PARSE_ERR)
-        return PARSE_ERR;
 
+    // a scan assignment
+    if(next == SCAN) {
+        verbose("declaration: oh, a scan call!");
+        *peeked = yylex();
+        goto store_and_exit; // done with it
+    }
+
+    // a literal string assingment
+    if(next == STR) {
+        verbose("declaration: a literal string in the assignment");
+        if(expected_type == STRING) {
+            verbose("declaration: correct string assignment");
+            *peeked = yylex();
+            goto store_and_exit;
+        } else {
+            error("trying to assign a string literal to a %i var/arg",
+                    expected_type);
+            return PARSE_ERR;
+        }
+    }
+
+    if(nexp(next,&parsed_type) == PARSE_ERR) {
+        return PARSE_ERR;
+    }
     if(expected_type != parsed_type) {
         error("declaration: %s was declared as %i; tried to assign type %i",
                 name,expected_type,parsed_type);
         free(name);
         return PARSE_ERR;
     }
+    *peeked = yylex();
 
+store_and_exit:
     try {
         table->store_symbol(VAR_T, expected_type, 0, name);
     } catch(const char* msg) {
         p_error(msg);
         return PARSE_ERR;
     }
-    verbose("assignment: symbol %s successfully stored",name);
+    verbose("declaration: symbol %s successfully stored",name);
     free(name);
-    *peeked = yylex();
     return PARSE_OK;
 }
 
@@ -420,7 +437,7 @@ int mn() {
  */
 int code(int ret) {
     int next = yylex(), func_or_var, type;
-    int plus_or_minus = next; // if we save the + / - we can avoid repeating their code twice
+    int plus_or_minus; // if we save the + / - we can avoid repeating their code twice
     int actual_ret = ret; // relevant in the RET case
     SymbolRegister *reg = NULL;
     while(next != '}') {
@@ -434,6 +451,7 @@ int code(int ret) {
                 // look ahead for twin
                 // if found, look for identifier
                 // else parse two expressions
+                plus_or_minus = next;
                 next = yylex();
                 if(next == plus_or_minus) { // the perceived operand, + or -
                     next = yylex();
@@ -446,11 +464,14 @@ int code(int ret) {
                     } else if(func_or_var == FUNC_T) {
                         error("code: can't apply a unary operator on a function call");
                         return PARSE_ERR;
-                    } else if(type != INT || type != LONG || type != UINT) {
-                        error("code: can't apply a unary operator on a non integer variable");
+                    } else if(type != INT && type != LONG && type != UINT) {
+                        error("code: can't apply a unary operator on a non integer variable (type is %i)",
+                                type);
                         return PARSE_ERR;
                     }
                     // increment magic!
+                    verbose("code: incre/decrementing variable %s",yylval.sval);
+                    next = yylex();
                     break;
                 } else {
                     // just making my life easier
@@ -476,12 +497,23 @@ int code(int ret) {
                         // look for asignment
                         if(expect(ARROW) == PARSE_ERR)
                             return PARSE_ERR;
+
                         int expected_ret = type,
                             parsed_ret;
                         // next is arrow, so we go ahead
                         next = yylex();
-                        //TODO: missing the SCAN possibility... ought to peek one more
                         verbose("code: token after assignment arrow is %s",yytext);
+                        if(next == STR) {
+                            if(type == STRING) {
+                                verbose("code: correct string assignment");
+                                next = yylex();
+                                break;
+                            } else {
+                                error("code: trying to assign a string literal to a %i var/arg",
+                                        type);
+                                return PARSE_ERR;
+                            }
+                        }
                         if(next == SCAN) {
                             verbose("code: oh, a scan call!");
                             next = yylex();
