@@ -35,12 +35,10 @@ arrow           "<-"
 
  /** type **/
 "seisu"         { l_error(yytext,' ');return INT;    }
-"naga seisu"    { l_error(yytext,' ');return LONG;   }
 "nashi seisu"   { l_error(yytext,' ');return UINT;   }
 "baito"         { l_error(yytext,' ');return CHAR;   }
 "mojiretsu"     { l_error(yytext,' ');return STRING; }
 "furotingu"     { l_error(yytext,' ');return FLOAT;  }
-"daburu"        { l_error(yytext,' ');return DOUBLE; }
 "shinri"        { l_error(yytext,' ');return BOOL;   }
 "kyo"           { l_error(yytext,' ');return VOID;   }
 

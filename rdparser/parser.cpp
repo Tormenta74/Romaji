@@ -73,12 +73,10 @@ void p_error(const char* msg) {
 bool is_type(int token) {
     return 
         token == INT ||
-        token == LONG ||
         token == UINT ||
         token == CHAR ||
         token == STRING ||
         token == FLOAT  ||
-        token == DOUBLE  ||
         token == BOOL  ||
         token == VOID;
 }
@@ -464,7 +462,7 @@ int code(int ret) {
                     } else if(func_or_var == FUNC_T) {
                         error("code: can't apply a unary operator on a function call");
                         return PARSE_ERR;
-                    } else if(type != INT && type != LONG && type != UINT) {
+                    } else if(type != INT && type != UINT) {
                         error("code: can't apply a unary operator on a non integer variable (type is %i)",
                                 type);
                         return PARSE_ERR;
@@ -491,6 +489,8 @@ int code(int ret) {
                         //in this instance we don't need to check the return type... nobody is expecting it!
                         if(call() == PARSE_ERR)
                             return PARSE_ERR;
+                        next = yylex();
+                        verbose("code: token going into the next iteration: %s", yytext);
                         break; // will this break out of the switch, or the while?
                     } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
                         verbose("code: symbol %s is a var / arg",yylval.sval);
@@ -717,9 +717,8 @@ int nexp(int prev, int *ret_type) {
                 return PARSE_ERR;
             }
             if(operand_type != *ret_type) {
-                error("nexp: the types of the two operands are not the same!: %i and %i",
+                verbose("nexp: the types of the two operands are not the same!: %i and %i",
                         operand_type,*ret_type);
-                return PARSE_ERR;
             }
             verbose("nexp: second operand of '%c' parsed",prev);
             return PARSE_OK;
@@ -799,8 +798,11 @@ int bexp(int prev) {
                 return PARSE_ERR;
             }
             if(operand_type != type) {
-                error("bexp: comparison operands do not match in type: %i and %i",
+                verbose("bexp: comparison operands do not match in type: %i and %i",
                         type, operand_type);
+            }
+            if(operand_type == STR || type == STR) {
+                error("bexp: operations involving strings are not allowed");
                 return PARSE_ERR;
             }
             return PARSE_OK;
@@ -822,8 +824,11 @@ int bexp(int prev) {
                     return PARSE_ERR;
                 }
                 if(operand_type != type) {
-                    error("bexp: comparison operands do not match in type: %i and %i",
+                    verbose("bexp: comparison operands do not match in type: %i and %i",
                             type, operand_type);
+                }
+                if(operand_type == STR || type == STR) {
+                    error("bexp: operations involving strings are not allowed");
                     return PARSE_ERR;
                 }
                 verbose("bexp: second operand of comparison parsed");
@@ -842,8 +847,11 @@ int bexp(int prev) {
                 }
                 verbose("bexp: second operand of comparison parsed");
                 if(operand_type != type) {
-                    error("bexp: comparison operands do not match in type: %i and %i",
+                    verbose("bexp: comparison operands do not match in type: %i and %i",
                             type, operand_type);
+                }
+                if(operand_type == STR || type == STR) {
+                    error("bexp: operations involving strings are not allowed");
                     return PARSE_ERR;
                 }
                 return PARSE_OK;
