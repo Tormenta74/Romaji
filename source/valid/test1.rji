@@ -7,7 +7,7 @@
 # a very basic program that declares an integer, assigns it an arith-
 # metic exception (the sum of 1 and 2) and returns it
 
-omo:seisu <- 
+omo:seisu
 {
     seisu a
     a <- + 1 2

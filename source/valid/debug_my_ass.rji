@@ -1,10 +1,11 @@
+kansu f:seisu <- seisu:a {
+    kisu a
+}
+
+kansu g:shinri <- {
+    kisu shin
+}
 
 omo:kyo {
-    seisu i
-    seisu j
-    seisu k
-    seisu l
-    seisu n
-    i <- + 1 2
     shi
 }

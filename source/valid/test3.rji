@@ -23,9 +23,9 @@ kansu multiply:seisu <- seisu:a seisu:b
 # with the keyword shi
 # Functions are called like this: 
 
-omo:kyo <- 
+omo:kyo
 {
     seisu a <- 1
-    sum_function (a a)
+    multiply (a a)
     shi
 }

@@ -14,7 +14,7 @@
 # - conditions must be defined inside parenthesis and follow the
 #   arithmetic conventions
 
-omo:seisu <-
+omo:seisu
 {
     seisu i <- 0
     seisu j

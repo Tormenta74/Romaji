@@ -6,7 +6,7 @@
 
 # a demonstration of the use of uketoru for variables, of the type
 # hierarchy and of the previously missing not operator
-omo:seisu <-
+omo:seisu
 {
     daburu a <- 0.5
     naga seisu b

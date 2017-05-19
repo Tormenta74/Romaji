@@ -66,7 +66,7 @@ arrow           "<-"
  /** assignment **/
 {arrow}     {l_error(yytext,' ');return ARROW;  }
               
-[-+*/%=&|!<>{}():]   {return *yytext;}
+[-+*/%=&|!<>{}():]   {l_error(yytext,' ');return *yytext;}
 
 {letter}{letterdigit}*  {
         yylval.sval = strdup(yytext);
