@@ -5,7 +5,7 @@
 # -------------------------------------------------------------------
 
 # a demonstration of the use of all of the operators
-omo:kyo <-
+omo:kyo
 {
     seisu a <- 12
     tsutaeru ( + a 2 ) # prints 14

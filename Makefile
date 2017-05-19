@@ -2,67 +2,85 @@
 CC = g++
 LEXER = flex
 PARSER = bison
-CFLAGS = -std=c++11 -g -Isymtable/
-LDFLAGS = #-lfl -Lbuild/
+CFLAGS = -std=c++11 -g -Iinclude/
+LDFLAGS = 
 
+BUILDDIR = build
+DEPSDIR = include
 LEXDIR = flex
 PARSEDIR = bison
-BUILDDIR = build
-SEMDIR = symtable
-SRCCODE = source
+DESCDIR = rdparser
+SYMDIR = symtable
 
-TARGET = rji
-LEXTARGET = $(TARGET)lex
-PARSETARGET = $(TARGET)parse
-SEMTARGET = symtable
+TARGET = rjicomp
+FLEXTARGET = rjilex
+BISONTARGET = rjiparse
+DRPTARGET = parser
+SYMTARGET = symtable
 
 # necessary files
-_TABC = $(PARSETARGET).tab.c
-TABC = $(patsubst %,$(BUILDDIR)/%,$(_TABC))
-_TABO = $(PARSETARGET).tab.o
-TABO = $(patsubst %,$(BUILDDIR)/%,$(_TABO))
-_LEXC = $(LEXTARGET).yy.c
-LEXC = $(patsubst %,$(BUILDDIR)/%,$(_LEXC))
-_LEXO = $(LEXTARGET).yy.o
-LEXO = $(patsubst %,$(BUILDDIR)/%,$(_LEXO))
-_SEMO = $(SEMTARGET).o
-SEMO = $(patsubst %,$(BUILDDIR)/%,$(_SEMO))
 
-LEXFILE = $(LEXTARGET).l
-PARSEFILE = $(PARSETARGET).y
+PAR_O = $(BUILDDIR)/$(DRPTARGET).o
+PAR_C = $(DESCDIR)/$(DRPTARGET).cpp
 
-all: before $(TARGET)
+SYM_O = $(BUILDDIR)/$(SYMTARGET).o
+SYM_C = $(SYMDIR)/$(SYMTARGET).cpp
+
+TAB_O = $(BUILDDIR)/$(BISONTARGET).tab.o
+TAB_C = $(BUILDDIR)/$(BISONTARGET).tab.c
+TAB_Y = $(PARSEDIR)/$(BISONTARGET).y
+
+LEX_O = $(BUILDDIR)/$(FLEXTARGET).yy.o
+LEX_C = $(BUILDDIR)/$(FLEXTARGET).yy.c
+LEX_L = $(LEXDIR)/$(FLEXTARGET).l
+
+
+all: before rdparser_comp
 	@echo "Target \"$(TARGET)\" built. Bailing."
 
 before:
 	[ -d $(OBJDIR) ]  || mkdir -p $(OBJDIR)
 
 clean:
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(TARGET)
+	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET)
 
+rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O)
+	@echo -e "\nLinking $^"
+	$(CC) -o $(TARGET) $^ $(LDFLAGS)
+	@echo -e "------------"
 
-$(TARGET): $(TABO) $(LEXO) $(SEMO)
-	@echo "Linking $^"
-	$(CC) -o $@ $^ $(LDFLAGS)
+bison_comp: $(TAB_O) $(LEX_O) $(SYM_O)
+	@echo -e "\nLinking $^"
+	$(CC) -o $(TARGET) $^ $(LDFLAGS)
+	@echo -e "------------"
 
-$(TABO): $(TABC)
-	@echo "Compiling $^"
+$(PAR_O): $(PAR_C)
+	@echo -e "\nCompiling the recursive descent parser"
 	$(CC) -o $@ -c $< $(CFLAGS)
+	@echo -e "------------"
 
-$(LEXO): $(LEXC)
-	@echo "Compiling $^"
+$(SYM_O): $(SYM_C)
+	@echo -e "\nCompiling the symbol table module"
 	$(CC) -o $@ -c $< $(CFLAGS)
+	@echo -e "------------"
 
-$(TABC): $(PARSEDIR)/$(PARSEFILE)
-	@echo "Generating parser"
+$(TAB_O): $(TAB_C)
+	@echo -e "\nCompiling $^"
+	$(CC) -o $@ -c $< $(CFLAGS)
+	@echo -e "------------"
+
+$(LEX_O): $(LEX_C)
+	@echo -e "\nCompiling $^"
+	$(CC) -o $@ -c $< $(CFLAGS)
+	@echo -e "------------"
+
+$(TAB_C): $(TAB_Y)
+	@echo -e "\nGenerating parser"
 	$(PARSER) -dv $< -o $@
+	@echo -e "------------"
 
-$(LEXC): $(LEXDIR)/$(LEXFILE)
-	@echo "Generating lex scanner"
+$(LEX_C): $(LEX_L)
+	@echo -e "\nGenerating lex scanner"
 	$(LEXER) -o $@ $<
+	@echo -e "------------"
 
-################################
-
-$(SEMO): $(SEMDIR)/$(SEMTARGET).cpp
-	@echo "Compiling the symbol table module"
-	$(CC) -o $@ -c $<

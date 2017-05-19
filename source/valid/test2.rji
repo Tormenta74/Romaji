@@ -9,7 +9,7 @@
 # quotations, and there are two instructions: uketoru receives from
 # stdin and tsutaeru prints to stdout
 
-omo:seisu <-
+omo:seisu
 {
     mojiretsu salute <- "Hello, "
     mojiretsu name <- uketoru

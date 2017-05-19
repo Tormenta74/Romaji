@@ -26,7 +26,7 @@ kansu next_f_number:seisu <- seisu:limit {
 
 # punto de entrada
 
-omo:seisu <- {
+omo:seisu {
     seisu my_number
     furotingu my_other_number
     seisu next_f <- -1

@@ -5,15 +5,15 @@
 # -------------------------------------------------------------------
 
 # a demonstration of the use of all of the operators
-omo:kyo <-
+omo:kyo
 {
     seisu i
-    naga seisu l
+    #naga seisu l   # removed from the language
     nashi seisu u
     baito c
     mojiretsu s
     furotingu f
-    daburu d
+    #daburu d   # removed from the language
     #shinri b   # not meant to be a variable
     #kyo v      # not meant to be a variable
     shi

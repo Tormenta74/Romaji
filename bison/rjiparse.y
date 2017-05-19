@@ -4,10 +4,7 @@
 
     #include "symtable.h"
 
-    //extern "C"
-    //{
-        int yylex(void);
-    //}
+    int yylex(void);
 
     SymbolTable* table = new SymbolTable();
     int line=1;
@@ -29,7 +26,7 @@
 
 %token WHILE IF ELSE FUNC RET MAIN EXIT PRINT SCAN
 
-%token INT LONG UINT CHAR STRING FLOAT DOUBLE BOOL VOID
+%token INT UINT CHAR STRING FLOAT BOOL VOID
 
 %token <sval> ID
 %token <dval> INT_N
@@ -62,8 +59,6 @@ program     : declaration program   /* as many global variables */
  */
 declaration : INT ID[i1]            { store($i1,VAR_T,INT);}
             | INT assignment[a1]    { store($<sval>a1,VAR_T,INT); }
-            | LONG ID[i2]           { store($i2,VAR_T,LONG); }
-            | LONG assignment[a2]   { store($<sval>a2,VAR_T,LONG); }
             | UINT ID[i3]           { store($i3,VAR_T,UINT); }
             | UINT assignment[a3]   { store($<sval>a3,VAR_T,UINT); }
             | CHAR ID[i4]           { store($i4,VAR_T,CHAR); }
@@ -72,8 +67,6 @@ declaration : INT ID[i1]            { store($i1,VAR_T,INT);}
             | STRING assignment[a5] { store($<sval>a5,VAR_T,STRING); }
             | FLOAT ID[i6]          { store($i6,VAR_T,FLOAT); }
             | FLOAT assignment[a6]  { store($<sval>a6,VAR_T,FLOAT); }
-            | DOUBLE ID[i7]         { store($i7,VAR_T,DOUBLE); }
-            | DOUBLE assignment[a7] { store($<sval>a7,VAR_T,DOUBLE); }
 ;
 
 /*
@@ -127,12 +120,10 @@ bexp    : TRUE | FALSE | ID | call
  */
 definition  : signature ARROW arguments '{' code '}';
 signature   : FUNC ID ':' INT       { store($2,FUNC_T,INT); }
-            | FUNC ID ':' LONG      { store($2,FUNC_T,LONG); }
             | FUNC ID ':' UINT      { store($2,FUNC_T,UINT); }
             | FUNC ID ':' CHAR      { store($2,FUNC_T,CHAR); }
             | FUNC ID ':' STRING    { store($2,FUNC_T,STRING); }
             | FUNC ID ':' FLOAT     { store($2,FUNC_T,FLOAT); }
-            | FUNC ID ':' DOUBLE    { store($2,FUNC_T,DOUBLE); }
             | FUNC ID ':' BOOL      { store($2,FUNC_T,BOOL); }
             | FUNC ID ':' VOID      { store($2,FUNC_T,VOID); }
 ;
@@ -145,12 +136,10 @@ signature   : FUNC ID ':' INT       { store($2,FUNC_T,INT); }
 main        : main_sig ARROW arguments '{' code '}'
             ;
 main_sig    : MAIN ':' INT
-            | MAIN ':' LONG
             | MAIN ':' UINT
             | MAIN ':' CHAR
             | MAIN ':' STRING
             | MAIN ':' FLOAT
-            | MAIN ':' DOUBLE
             | MAIN ':' BOOL
             | MAIN ':' VOID
 ;
@@ -164,12 +153,10 @@ arguments   : /* no arguments */
             | argument arguments
 ;
 argument    : INT ':' ID[i1]    { store($i1,PARAM_T,INT); }
-            | LONG ':' ID[i2]   { store($i2,PARAM_T,LONG); }
             | UINT ':' ID[i3]   { store($i3,PARAM_T,UINT); }
             | CHAR ':' ID[i4]   { store($i4,PARAM_T,CHAR); }
             | STRING ':' ID[i5] { store($i5,PARAM_T,STRING); }
             | FLOAT ':' ID[i6]  { store($i6,PARAM_T,FLOAT); }
-            | DOUBLE ':' ID[i7] { store($i7,PARAM_T,DOUBLE); }
 ;
 
 code    : declaration code
