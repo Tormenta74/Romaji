@@ -13,6 +13,8 @@
 FILE *obj_file = NULL;
 int current_tag = 0;
 char *function_space[64]; // a somewhat random limit
+int current_statcode = 0;
+int stat_address = 0x11fff;
 
 void init_q_file(char *filename) {
     FILE *fp = fopen(filename,"w");
@@ -58,7 +60,8 @@ void qgen_jmp(char *fname) {
 }
 
 void qgen_str(char *string) {
-    // somewhere along these lines
-    qgen("STAT(%i)",0);
-    qgen("CODE(%i)",0);
+    qgen("STAT(%i)",current_statcode);
+    qgen("\t\tSTR(0x%x,%s)",stat_address,string);
+    qgen("CODE(%i)",current_statcode);
+    current_statcode++;
 }

@@ -20,7 +20,7 @@ int bexp(int);
 //int arguments(); // replaced by for loop
 int argument(int);
 int code(int);
-int call();
+int call(int);
 //int parameters() // replaced by for loop;
 int parameter(int,int*);
 

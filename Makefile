@@ -44,10 +44,10 @@ all: before rdparser_comp
 	@echo "Target \"$(TARGET)\" built. Bailing."
 
 before:
-	[ -d $(OBJDIR) ]  || mkdir -p $(OBJDIR)
+	[ -d $(BUILDDIR) ]  || mkdir -p $(BUILDDIR)
 
 clean:
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET)
+	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET) ./source/valid/*.q.c
 
 rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O) $(COD_O)
 	@echo -e "\nLinking $^"

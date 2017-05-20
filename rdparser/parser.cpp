@@ -305,6 +305,7 @@ int declaration(int prev, int *peeked) {
 
     // a literal string assingment
     if(next == STR) {
+        qgen_str(yylval.sval);
         verbose("declaration: a literal string in the assignment");
         if(expected_type == STRING) {
             verbose("declaration: correct string assignment");
@@ -493,7 +494,7 @@ int code(int ret) {
                     if (func_or_var == FUNC_T) {
                         verbose("code: symbol %s is a function",yylval.sval);
                         //in this instance we don't need to check the return type... nobody is expecting it!
-                        if(call() == PARSE_ERR)
+                        if(call(FUNC_T) == PARSE_ERR)
                             return PARSE_ERR;
                         next = yylex();
                         verbose("code: token going into the next iteration: %s", yytext);
@@ -510,6 +511,7 @@ int code(int ret) {
                         next = yylex();
                         verbose("code: token after assignment arrow is %s",yytext);
                         if(next == STR) {
+                            qgen_str(yylval.sval);
                             if(type == STRING) {
                                 verbose("code: correct string assignment");
                                 next = yylex();
@@ -574,7 +576,7 @@ int code(int ret) {
                 /* parse '(' parameter* ')' */
                 /* or... could I just use call()? as long as it processes the arguments correctly...
                  * if it becomes hellish to put the arguments into the object, just copy the code */
-                if(call() == PARSE_ERR)
+                if(call(PRINT) == PARSE_ERR)
                     return PARSE_ERR;
                 next = yylex(); // done with this statement
                 break;
@@ -613,7 +615,7 @@ int code(int ret) {
                             return PARSE_ERR;
                         } else if(func_or_var == FUNC_T) {
                             verbose("code: returning a function call");
-                            if(call() == PARSE_ERR)
+                            if(call(FUNC_T) == PARSE_ERR)
                                 return PARSE_ERR;
                             next = yylex();
                             break;
@@ -698,7 +700,7 @@ int nexp(int prev, int *ret_type) {
                     return PARSE_OK;
                 } else if(func_or_var == FUNC_T) { /* found a function */
                     /* check the call */
-                    if(call() == PARSE_ERR)
+                    if(call(FUNC_T) == PARSE_ERR)
                         return PARSE_ERR;
                 }
                 return PARSE_OK;
@@ -765,7 +767,7 @@ int bexp(int prev) {
                 return PARSE_ERR;
             } else if(func_or_var == FUNC_T) { /* found a function */
                 /* check the call */
-                if(call() == PARSE_ERR)
+                if(call(FUNC_T) == PARSE_ERR)
                     return PARSE_ERR;
             }
             return PARSE_OK;
@@ -912,9 +914,18 @@ int argument(int prev) {
  *      [ID] '(' parameter* ')'
  * Special return: function return type (rly? better just int*)
  */
-int call() {
+int call(int func_or_print) {
     // previous token was func identifier or tsutaeru
     // we need that information to check the arguments
+
+    int numargs = 0;
+    if(func_or_print == FUNC_T) {
+        SymbolRegister *func = table->get_symbol(yylval.sval);
+        if(!func)
+            return PARSE_ERR; // we should never get here, but better safe than sorry
+        numargs = func->get_info();
+    }
+
     
     if(expect('(') == PARSE_ERR)
         return PARSE_ERR;
@@ -945,13 +956,13 @@ int call() {
  *      STR | nexp | bexp
  */
 int parameter(int prev, int *type) {
-    //int next = yylex();
     /* note: this block is actually significant to the 
      * language spec, since we are basically saying that
      * no operations can be performed on string literals,
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
     if(prev == STR) {
+        qgen_str(yylval.sval);
         *type = STR;
         return PARSE_OK;
     } else
