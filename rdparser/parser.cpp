@@ -384,6 +384,7 @@ int definition() {
         next = yylex();
     }
     // everything ok up to here, so we register the function
+    // on the global scope, so it is available everywhere
     table->set_scope(0);
     try {
         table->store_symbol(FUNC_T, ret, local_num_args, name);
@@ -912,6 +913,9 @@ int argument(int prev) {
  * Special return: function return type (rly? better just int*)
  */
 int call() {
+    // previous token was func identifier or tsutaeru
+    // we need that information to check the arguments
+    
     if(expect('(') == PARSE_ERR)
         return PARSE_ERR;
     // ambiguity! in the number of arguments so count them

@@ -1,3 +1,9 @@
+/*
+ * Some notes:
+ * in Romaji, we are going to treat arguments passed to functions
+ * always as passed by reference, so assignments made inside functions
+ * have effects in the rest of the program.
+ */
 
 #include <stdlib.h>
 #include <string.h>
