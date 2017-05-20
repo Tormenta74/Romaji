@@ -6,6 +6,16 @@ kansu decrement:kyo <- seisu:a {
     -- a
 }
 
+kansu just_here_to_waste_your_space:kyo <-
+    seisu:i
+    mojiretsu:s
+{
+    naka < i 10 {
+        tsutaeru (s ", motherfuckers")
+        increment(i)
+    }
+}
+
 omo:kyo
 {
     seisu i <- uketoru

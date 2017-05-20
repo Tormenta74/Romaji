@@ -11,12 +11,13 @@
 #include <string.h>
 
 #include "bison-bridge.h"
+#include "codegen.h"
 #include "format.h"
 #include "parser.h"
 #include "symtable.h"
 
 int line=1;
-char err_buff[256] = "";
+char msg_buff[256] = "";
 
 // internal counter that actually defines
 // a sort of scope: it increments each on
@@ -60,14 +61,15 @@ void p_error(const char* msg) {
 }
 
 #define error(...) {\
-    sprintf(err_buff,__VA_ARGS__);\
-    p_error(err_buff);\
+    sprintf(msg_buff,__VA_ARGS__);\
+    p_error(msg_buff);\
 }
 
 #define verbose(...) {\
-    sprintf(err_buff,__VA_ARGS__);\
-    p_verbose(err_buff);\
+    sprintf(msg_buff,__VA_ARGS__);\
+    p_verbose(msg_buff);\
 }
+
 
 // oneliner for checking if token is type keyword
 bool is_type(int token) {
@@ -195,7 +197,20 @@ int main(int argc, char *argv[]) {
     if(argc>1)
         if((yyin = fopen(argv[1],"r")) == NULL)
             return -1;
-    int ret = start();
+    // use q_line as temporary buffer to store filename
+    sprintf(msg_buff,argv[1]);
+
+    try {
+        init_q_file(strcat(msg_buff,".q.c"));
+    } catch(const char *msg) {
+        fprintf(stderr,msg);
+    }
+    verbose("Entry point: object file initialized*");
+
+    int ret = program();
+
+    qgen("END\n");
+    quit_codegen();
 
     fflush(stdout);
     if(ret == PARSE_OK)
@@ -208,17 +223,6 @@ int main(int argc, char *argv[]) {
 /*==============================================*/
 /** ** ** ** **  RULE FUNCTIONS ** ** ** ** ** **/
 /*==============================================*/
-
-/*
- * Initializes object file
- * Receives: source code filename 
- */
-int start() {
-    /* TODO: code generation in this line */
-    verbose("Entry point: object file initialized*");
-    return program();
-    /* and this one */
-}
 
 
 /*
@@ -349,12 +353,13 @@ int definition() {
     int ret,next;
     local_num_args = 0;
 
+
     if(expect(ID) == PARSE_ERR) //identifier
         return PARSE_ERR;
     verbose("processed: identifier");
     /* save the name */
     char *name = strdup(yylval.sval);
-    verbose(name);
+    qgen_tag(name);
 
     if(expect(':') == PARSE_ERR) //:
         return PARSE_ERR;
