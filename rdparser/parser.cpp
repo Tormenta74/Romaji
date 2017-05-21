@@ -274,6 +274,7 @@ int program() {
  */
 int declaration(int prev, int *peeked) {
     int next, expected_type = prev, parsed_type;
+    unsigned int addr;
     char *name;
 
     verbose("declaration: type keyword detected: %s",yytext);
@@ -282,6 +283,8 @@ int declaration(int prev, int *peeked) {
         return PARSE_ERR;
     name = strdup(yylval.sval);
     verbose("declaration: identifier taken");
+
+    addr = qgen_var(expected_type);
 
     next = yylex();
     verbose("declaration: token after id is %s",yytext);
@@ -299,6 +302,7 @@ int declaration(int prev, int *peeked) {
     // a scan assignment
     if(next == SCAN) {
         verbose("declaration: oh, a scan call!");
+        qgen("\tscanf();\t// scan functionality breaks Q compatibility");
         *peeked = yylex();
         goto store_and_exit; // done with it
     }
@@ -331,7 +335,7 @@ int declaration(int prev, int *peeked) {
 
 store_and_exit:
     try {
-        table->store_symbol(VAR_T, expected_type, 0, name);
+        table->store_symbol(VAR_T, expected_type, addr, name);
     } catch(const char* msg) {
         p_error(msg);
         return PARSE_ERR;
@@ -427,6 +431,7 @@ int mn() {
     if(expect('{') == PARSE_ERR) // {
         return PARSE_ERR;
 
+    qgen("L 0:\t// entry point");
     return code(ret);
 }
 
@@ -444,6 +449,7 @@ int code(int ret) {
     int next = yylex(), func_or_var, type;
     int plus_or_minus; // if we save the + / - we can avoid repeating their code twice
     int actual_ret = ret; // relevant in the RET case
+    int param_count = 0, offset = 0, of_type;
     SymbolRegister *reg = NULL;
     while(next != '}') {
         verbose("code: next statement starts with %s",yytext);
@@ -494,7 +500,7 @@ int code(int ret) {
                     if (func_or_var == FUNC_T) {
                         verbose("code: symbol %s is a function",yylval.sval);
                         //in this instance we don't need to check the return type... nobody is expecting it!
-                        if(call(FUNC_T) == PARSE_ERR)
+                        if(call() == PARSE_ERR)
                             return PARSE_ERR;
                         next = yylex();
                         verbose("code: token going into the next iteration: %s", yytext);
@@ -574,10 +580,21 @@ int code(int ret) {
                 break; // next token already fetched
             case PRINT:
                 /* parse '(' parameter* ')' */
-                /* or... could I just use call()? as long as it processes the arguments correctly...
-                 * if it becomes hellish to put the arguments into the object, just copy the code */
-                if(call(PRINT) == PARSE_ERR)
+                if(expect('(') == PARSE_ERR)
                     return PARSE_ERR;
+
+                next = yylex();
+                while(next != ')') {
+                    /* just let the parameter() function take 
+                     * care of it, then check param type */
+                    if(parameter(next,&of_type) == PARSE_ERR)
+                        return PARSE_ERR;
+                    verbose("code: (print) parsed a %i type parameter",of_type);
+                    param_count++;
+                    offset+=type_length(of_type);
+                    next = yylex();
+                }
+
                 next = yylex(); // done with this statement
                 break;
             case RET:
@@ -600,6 +617,8 @@ int code(int ret) {
                         p_error("code: returning something in a void function!");
                         return PARSE_ERR;
                     }
+                    qgen("\tR0=0;\t// no return");
+                    qgen("\tGT(R6);// go up the caller");
                     return PARSE_OK;
                 } else {
                     next = yylex();
@@ -615,7 +634,7 @@ int code(int ret) {
                             return PARSE_ERR;
                         } else if(func_or_var == FUNC_T) {
                             verbose("code: returning a function call");
-                            if(call(FUNC_T) == PARSE_ERR)
+                            if(call() == PARSE_ERR)
                                 return PARSE_ERR;
                             next = yylex();
                             break;
@@ -643,6 +662,8 @@ int code(int ret) {
                  * consumes the closing bracket (if found) */
                 if(drop_until_brace() == PARSE_ERR)
                     return PARSE_ERR;
+                qgen("\tR0=0;\t// no return");
+                qgen("\tGT(-2);\t// exit");
                 return PARSE_OK;
             default: /* check for variable declarations, and if not, well, wtf */
                 if(!is_type(next)) {
@@ -700,7 +721,7 @@ int nexp(int prev, int *ret_type) {
                     return PARSE_OK;
                 } else if(func_or_var == FUNC_T) { /* found a function */
                     /* check the call */
-                    if(call(FUNC_T) == PARSE_ERR)
+                    if(call() == PARSE_ERR)
                         return PARSE_ERR;
                 }
                 return PARSE_OK;
@@ -767,7 +788,7 @@ int bexp(int prev) {
                 return PARSE_ERR;
             } else if(func_or_var == FUNC_T) { /* found a function */
                 /* check the call */
-                if(call(FUNC_T) == PARSE_ERR)
+                if(call() == PARSE_ERR)
                     return PARSE_ERR;
             }
             return PARSE_OK;
@@ -914,23 +935,20 @@ int argument(int prev) {
  *      [ID] '(' parameter* ')'
  * Special return: function return type (rly? better just int*)
  */
-int call(int func_or_print) {
+int call() {
     // previous token was func identifier or tsutaeru
     // we need that information to check the arguments
 
     int numargs = 0;
-    if(func_or_print == FUNC_T) {
-        SymbolRegister *func = table->get_symbol(yylval.sval);
-        if(!func)
-            return PARSE_ERR; // we should never get here, but better safe than sorry
-        numargs = func->get_info();
-    }
+    SymbolRegister *func = table->get_symbol(yylval.sval);
+    if(!func)
+        return PARSE_ERR; // we should never get here, but better safe than sorry
+    numargs = func->get_info();
 
-    
     if(expect('(') == PARSE_ERR)
         return PARSE_ERR;
-    // ambiguity! in the number of arguments so count them
-    int param_count = 0, of_type, next;
+
+    int param_count = 0, offset = 0, of_type, next;
     next = yylex();
     while(next != ')') {
         /* just let the parameter() function take 
@@ -938,10 +956,16 @@ int call(int func_or_print) {
         if(parameter(next,&of_type) == PARSE_ERR)
             return PARSE_ERR;
         verbose("call: parsed a %i type parameter",of_type);
-        param_count++;
+        param_count++; offset+=type_length(of_type);
         next = yylex();
     }
-    verbose("call: parsed %i parameters",param_count);
+
+    if(numargs != param_count) {
+        error("call: parsed %i parameters, when function %s expects %i",
+                param_count,func->get_name(),numargs);
+        return PARSE_ERR;
+    }
+
     return PARSE_OK;
 }
 
@@ -962,10 +986,13 @@ int parameter(int prev, int *type) {
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
     if(prev == STR) {
-        qgen_str(yylval.sval);
         *type = STR;
         return PARSE_OK;
-    } else
-        return expression(prev,type);
+    } else {
+        if(expression(prev,type) == PARSE_ERR)
+            return PARSE_ERR;
+        qgen(" ");
+        return PARSE_OK;
+    }
 }
 

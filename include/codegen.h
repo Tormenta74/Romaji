@@ -3,13 +3,31 @@
 #define _Q_CODE_GEN_H
 
 #include <stdio.h>
+#include <stdint.h>
 
 void init_q_file(char *filename);
 void quit_codegen();
 void codegen(char *qline);
+
+// tags and gotos
 void qgen_tag(char *fname);
 void qgen_jmp(char *fname);
-void qgen_str(char *string);
+
+// reserve memory
+unsigned int qgen_str(char *string);
+unsigned int qgen_var(int type);
+
+// fetch from the stack
+void qgen_get_arg(int type, int offset);
+
+// save registers
+
+
+// push params to the stack
+void qgen_put_par(int type, int offset, int val);
+
+// useful helpers
+unsigned short type_length(int type);
 
 #define qgen(...) {\
     char q_line[256];\

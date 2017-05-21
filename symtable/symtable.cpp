@@ -77,7 +77,7 @@ int SymbolRegister::get_return() {
     return this->ret;
 }
 
-int SymbolRegister::get_info() {
+unsigned int SymbolRegister::get_info() {
     return this->info;
 }
 
