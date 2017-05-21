@@ -11,9 +11,10 @@ omo:kyo
     #naga seisu l   # removed from the language
     nashi seisu u
     baito c
-    mojiretsu s
     furotingu f
     #daburu d   # removed from the language
+    mojiretsu[] s <- "Length obtained on initialization"
+    mojiretsu[32] s1
     #shinri b   # not meant to be a variable
     #kyo v      # not meant to be a variable
     shi

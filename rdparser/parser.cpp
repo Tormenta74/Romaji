@@ -302,7 +302,6 @@ int declaration(int prev, int *peeked) {
     // a scan assignment
     if(next == SCAN) {
         verbose("declaration: oh, a scan call!");
-        qgen("\tscanf();\t// scan functionality breaks Q compatibility");
         *peeked = yylex();
         goto store_and_exit; // done with it
     }

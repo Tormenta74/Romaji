@@ -1,0 +1,34 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #8 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a demonstration of the correct use of strings
+# when strings are passed as arguments, it is expected
+# that they are initialized and have a memory area reserved
+# so we only need to refer to them as "mojiretsu:var_name"
+kansu print_concat:kyo <-
+    mojiretsu:first
+    mojiretsu:second
+{
+    tsutaeru(first second)
+}
+
+# when declaring the variable itself, though, the length of
+# the string must be explicitly declared, or there must be an
+# assignment with a literal string, which will be stored in
+# memory and will delimit the amount of memory reserved for the
+# variable
+omo:kyo
+{
+    mojiretsu[] s1 <- "Your name is "
+    mojiretsu[32] s2
+
+    tsutaeru("Hi, your name is...? ")
+    s2 <- uketoru
+
+    print_concat(s1 s2)
+    shi
+}
+
