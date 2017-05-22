@@ -1,25 +1,10 @@
-kansu increment:kyo <- seisu:a {
-    ++ a
-}
-
-kansu decrement:kyo <- seisu:a {
-    -- a
-}
-
-kansu just_here_to_waste_your_space:kyo <-
-    seisu:i
-    mojiretsu:s
-{
-    naka < i 10 {
-        tsutaeru (s ", motherfuckers")
-        increment(i)
-    }
-}
+mojiretsu initialized?[8] <- uketoru # not really: this line of code is never really reached!
 
 omo:kyo
 {
-    seisu i <- uketoru
-    increment(i)
-    decrement(i)
+    mojiretsu initialized[] <- "with a literal string"
+    mojiretsu also_initialized[16] <- uketoru # with a text input
+    mojiretsu only_declared[32]
+    mojiretsu initialized_too[64] <- "this also works"
     shi
 }

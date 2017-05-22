@@ -11,8 +11,9 @@
 kansu print_concat:kyo <-
     mojiretsu:first
     mojiretsu:second
+    mojiretsu:third
 {
-    tsutaeru(first second)
+    tsutaeru(first second third)
 }
 
 # when declaring the variable itself, though, the length of
@@ -24,6 +25,7 @@ omo:kyo
 {
     mojiretsu[] s1 <- "Your name is "
     mojiretsu[32] s2
+    mojiretsu[16] s3 <- "0123456789ABCDEF"
 
     tsutaeru("Hi, your name is...? ")
     s2 <- uketoru

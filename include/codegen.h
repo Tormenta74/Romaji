@@ -16,6 +16,10 @@ void qgen_jmp(char *fname);
 // reserve memory
 unsigned int qgen_str(char *string);
 unsigned int qgen_var(int type);
+unsigned int qgen_str_var(int size);
+unsigned int qgen_str_var(char *string);
+unsigned int qgen_str_var(int size, char *string);
+unsigned int qgen_str_scan(int size);
 
 // fetch from the stack
 void qgen_get_arg(int type, int offset);

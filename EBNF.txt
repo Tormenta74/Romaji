@@ -9,8 +9,9 @@ declaration -> INT ID
             -> UINT assignment 
             -> CHAR ID 
             -> CHAR assignment
-            -> STRING ID 
-            -> STRING assignment 
+            -> STRING [ INT_N ] ID 
+            -> STRING [ INT_N ] ID ARROW SCAN
+            -> STRING [ ] ID ARROW STR
             -> FLOAT ID 
             -> FLOAT assignment
 

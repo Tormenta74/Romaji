@@ -13,15 +13,13 @@
 
     extern int line;
     void l_error(const char *msg, char c);
-    //void l_verbose(char *msg);
 %}
 
 %option noyywrap
 
-letter          [a-zA-z_?]
+letter          [a-zA-Z_?]
 digit           [0-9]
 letterdigit     {letter}|{digit}
-hex             [0-9a-fA-F]
 arrow           "<-"
 
 %%
@@ -64,7 +62,7 @@ arrow           "<-"
  /** assignment **/
 {arrow}     {l_error(yytext,' ');return ARROW;  }
               
-[-+*/%=&|!<>{}():]   {l_error(yytext,' ');return *yytext;}
+[-+*/%=&|!<>{}()\[\]:]   {l_error(yytext,' ');return *yytext;}
 
 {letter}{letterdigit}*  {
         yylval.sval = strdup(yytext);
@@ -91,8 +89,4 @@ arrow           "<-"
 
 void l_error(const char* msg, char c) {
     fprintf(stderr, "flex: %i: %c %s\n", line, c, msg);
-}
-
-void l_error(const char* msg) {
-    fprintf(stderr, "flex: %i: %s\n", line, msg);
 }

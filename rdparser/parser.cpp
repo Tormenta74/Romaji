@@ -274,7 +274,7 @@ int program() {
  */
 int declaration(int prev, int *peeked) {
     int next, expected_type = prev, parsed_type;
-    unsigned int addr;
+    unsigned int addr, string_size = 0;
     char *name;
 
     verbose("declaration: type keyword detected: %s",yytext);
@@ -283,6 +283,71 @@ int declaration(int prev, int *peeked) {
         return PARSE_ERR;
     name = strdup(yylval.sval);
     verbose("declaration: identifier taken");
+
+    // managing the strings separately
+    if(expected_type == STRING) {
+        if(expect('[') == PARSE_ERR) {
+            error("declaration: strings must be declared with brackets");
+            return PARSE_ERR;
+        }
+
+        next = yylex();
+        if(next == INT_N) {
+            if(yylval.dval < 1) {
+                error("declaration: can't declare a negative sized string var");
+                return PARSE_ERR;
+            }
+            string_size = yylval.dval;
+            next = yylex();
+        }
+
+        if(next != ']') {
+            error("declaration: brackets not closed!");
+            return PARSE_ERR;
+        }
+
+        next = yylex();
+        if(next != ARROW) {
+            if(string_size == 0) {
+                error("declaration: can't declare string without explicit size or initialization");
+                return PARSE_ERR;
+            } else {
+                // string declared alone with a size:
+                addr = qgen_str_var(string_size);
+                *peeked = next;
+                goto store_and_exit;
+            }
+        } else {
+            // next is arrow, so go ahead
+            next = yylex();
+            if(next == STR) {
+                if(string_size != 0) { // size + literal
+                    if(string_size < strlen(yylval.sval)) {
+                        error("declaration: declared size is smaller than string literal length");
+                        return PARSE_ERR;
+                    }
+                    addr = qgen_str_var(string_size,yylval.sval);
+                } else { // only literal
+                    addr = qgen_str_var(yylval.sval);
+                }
+            } else if(next == SCAN) {
+                if(string_size != 0) { // size + scan
+                    addr = qgen_str_scan(string_size);
+                } else { // only scan
+                    error("declaration: must declare size before initializing with a scan call");
+                    return PARSE_ERR;
+                }
+
+            } else {
+                error("declaration: strings must be initialized via a literal string\
+                        or a scan call");
+                return PARSE_ERR;
+            }
+            next = yylex();
+            *peeked = next;
+            goto store_and_exit;
+        }
+    }
 
     addr = qgen_var(expected_type);
 
@@ -308,17 +373,8 @@ int declaration(int prev, int *peeked) {
 
     // a literal string assingment
     if(next == STR) {
-        qgen_str(yylval.sval);
-        verbose("declaration: a literal string in the assignment");
-        if(expected_type == STRING) {
-            verbose("declaration: correct string assignment");
-            *peeked = yylex();
-            goto store_and_exit;
-        } else {
-            error("trying to assign a string literal to a %i var/arg",
-                    expected_type);
-            return PARSE_ERR;
-        }
+        error("declaration: assigning a literal string to a non string variable");
+        return PARSE_ERR;
     }
 
     if(nexp(next,&parsed_type) == PARSE_ERR) {

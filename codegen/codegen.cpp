@@ -104,6 +104,9 @@ void codegen(char *qline) {
     fprintf(obj_file,qline);
 }
 
+
+// tags and gotos
+
 // add tag to the object file to reference
 // function code
 void qgen_tag(char *fname) {
@@ -120,6 +123,8 @@ void qgen_jmp(char *fname) {
         }
     qgen("\t// codegen failed to find the label of the %s function",fname);
 }
+
+// reserve memory
 
 unsigned int qgen_str(char *string) {
     unsigned int ret = stat_address;
@@ -147,6 +152,72 @@ unsigned int qgen_var(int type) {
     stat_address -= type_length(type);
 
     return ret;
+}
+
+unsigned int qgen_str_var(int size) {
+    unsigned int ret = stat_address;
+    char *filler = (char*)malloc(sizeof(char)*size);
+
+    for(int i=0; i<size; i++)
+        strcat(filler," ");
+
+    qgen("STAT(%i)",current_statcode);
+    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("CODE(%i)",current_statcode);
+
+    current_statcode ++;
+    stat_address -= size;
+
+    free(filler);
+
+    return ret;
+}
+
+unsigned int qgen_str_var(char *string) {
+    unsigned int ret = stat_address;
+    char *filler = (char*)malloc(sizeof(char)*strlen(string));
+
+    sprintf(filler,"%s",string);
+
+    qgen("STAT(%i)",current_statcode);
+    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("CODE(%i)",current_statcode);
+
+    current_statcode ++;
+    stat_address -= strlen(filler);
+
+    free(filler);
+
+    return ret;
+}
+
+unsigned int qgen_str_var(int size, char *string) {
+    unsigned int ret = stat_address;
+    char *filler = (char*)malloc(sizeof(char)*size);
+
+    sprintf(filler,"%s",string);
+    for(int i=0; i<(size-(int)strlen(string)); i++)
+        strcat(filler," ");
+
+    sprintf(filler,"%s",string);
+
+    qgen("STAT(%i)",current_statcode);
+    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("CODE(%i)",current_statcode);
+
+    current_statcode ++;
+    stat_address -= strlen(filler);
+
+    free(filler);
+
+    return ret;
+}
+
+unsigned int qgen_str_scan(int size) {
+    unsigned int addr = qgen_str_var(size);
+    qgen("\tscanf(\"%%%is\",&U(0x%x))",
+            size,addr);
+    return addr;
 }
 
 void qgen_scan(int type, unsigned int addr) {
