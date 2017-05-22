@@ -537,6 +537,9 @@ int code(int ret) {
                     }
                     // increment magic!
                     verbose("code: incre/decrementing variable %s",yylval.sval);
+                    unsigned int address = reg->get_info();
+                    verbose("code: fetched address");
+                    qgen_unary_op(plus_or_minus,type,address);
                     next = yylex();
                     break;
                 } else {

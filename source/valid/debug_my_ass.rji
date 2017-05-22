@@ -1,10 +1,6 @@
-mojiretsu initialized?[8] <- uketoru # not really: this line of code is never really reached!
-
 omo:kyo
 {
-    mojiretsu initialized[] <- "with a literal string"
-    mojiretsu also_initialized[16] <- uketoru # with a text input
-    mojiretsu only_declared[32]
-    mojiretsu initialized_too[64] <- "this also works"
+    seisu i <- 0
+    ++i
     shi
 }

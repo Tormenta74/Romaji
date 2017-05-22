@@ -10,6 +10,7 @@
 #include "codegen.h"
 #include "bison-bridge.h"
 
+#define PERCENT_ASCII   '\045'
 
 FILE *obj_file = NULL;
 int current_tag = 1;
@@ -143,7 +144,7 @@ unsigned int qgen_var(int type) {
     unsigned int ret = stat_address;
 
     qgen("STAT(%i)",current_statcode);
-    qgen("\tDAT(0x%x,%s,0)",
+    qgen("\tDAT(0x%x,%s,0);",
             stat_address,
             type_access(type));
     qgen("CODE(%i)",current_statcode);
@@ -162,7 +163,7 @@ unsigned int qgen_str_var(int size) {
         strcat(filler," ");
 
     qgen("STAT(%i)",current_statcode);
-    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
     qgen("CODE(%i)",current_statcode);
 
     current_statcode ++;
@@ -175,12 +176,10 @@ unsigned int qgen_str_var(int size) {
 
 unsigned int qgen_str_var(char *string) {
     unsigned int ret = stat_address;
-    char *filler = (char*)malloc(sizeof(char)*strlen(string));
-
-    sprintf(filler,"%s",string);
+    char *filler = strndup(string+1,strlen(string)-2);
 
     qgen("STAT(%i)",current_statcode);
-    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
     qgen("CODE(%i)",current_statcode);
 
     current_statcode ++;
@@ -195,14 +194,12 @@ unsigned int qgen_str_var(int size, char *string) {
     unsigned int ret = stat_address;
     char *filler = (char*)malloc(sizeof(char)*size);
 
-    sprintf(filler,"%s",string);
+    strncpy(filler,string+1,strlen(string)-2);
     for(int i=0; i<(size-(int)strlen(string)); i++)
         strcat(filler," ");
 
-    sprintf(filler,"%s",string);
-
     qgen("STAT(%i)",current_statcode);
-    qgen("\tSTR(0x%x,%s)",stat_address,filler);
+    qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
     qgen("CODE(%i)",current_statcode);
 
     current_statcode ++;
@@ -215,8 +212,8 @@ unsigned int qgen_str_var(int size, char *string) {
 
 unsigned int qgen_str_scan(int size) {
     unsigned int addr = qgen_str_var(size);
-    qgen("\tscanf(\"%%%is\",&U(0x%x))",
-            size,addr);
+    qgen("\n\tscanf(\"%c%is\",&U(0x%x));\n",
+            PERCENT_ASCII,size,addr);
     return addr;
 }
 
@@ -225,6 +222,12 @@ void qgen_scan(int type, unsigned int addr) {
     qgen("\tscanf(\"%%%s\",&%s(0x%x));\t// scan functionality breaks Q compatibility",
             type_format(type),type_access(type),addr);
 
+}
+
+void qgen_unary_op(int plus_or_minus, int type, unsigned int addr) {
+    qgen("\t%s(0x%x) %c= %s(0x%x)",
+            type_access(type),addr,plus_or_minus,
+            type_access(type),addr);
 }
 
 /*

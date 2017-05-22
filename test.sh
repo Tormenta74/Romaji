@@ -30,4 +30,7 @@ for i in $(ls $valid); do
     fi
 done
 
+echo -e "\$ ./cleanup.sh"
+./cleanup.sh
+
 echo -e "\033[0;32m$compiled\033[0m out of 9 compiled"

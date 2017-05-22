@@ -30,6 +30,9 @@ void qgen_get_arg(int type, int offset);
 // push params to the stack
 void qgen_put_par(int type, int offset, int val);
 
+// arithmetics
+void qgen_unary_op(int plus_or_minus, int type, unsigned int addr);
+
 // useful helpers
 unsigned short type_length(int type);
 

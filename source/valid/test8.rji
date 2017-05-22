@@ -11,9 +11,8 @@
 kansu print_concat:kyo <-
     mojiretsu:first
     mojiretsu:second
-    mojiretsu:third
 {
-    tsutaeru(first second third)
+    tsutaeru(first second)
 }
 
 # when declaring the variable itself, though, the length of
@@ -23,9 +22,13 @@ kansu print_concat:kyo <-
 # variable
 omo:kyo
 {
-    mojiretsu[] s1 <- "Your name is "
-    mojiretsu[32] s2
-    mojiretsu[16] s3 <- "0123456789ABCDEF"
+    mojiretsu initialized[] <- "with a literal string"
+    mojiretsu also_initialized[16] <- uketoru # with a text input
+    mojiretsu only_declared[32]
+    mojiretsu initialized_too[64] <- "this also works"
+
+    mojiretsu s1[] <- "Your name is "
+    mojiretsu s2[20]
 
     tsutaeru("Hi, your name is...? ")
     s2 <- uketoru
