@@ -56,8 +56,8 @@ arrow           "<-"
 "uketoru"   {l_error(yytext,' ');return SCAN;     }
 
  /** special values **/
-"shin"      {yylval.bval = 0;l_error(yytext,' ');return TRUE;}
-"nise"      {yylval.bval = 1;l_error(yytext,' ');return FALSE;}
+"shin"      {yylval.bval = 1;l_error(yytext,' ');return TRUE;}
+"nise"      {yylval.bval = 0;l_error(yytext,' ');return FALSE;}
 
  /** assignment **/
 {arrow}     {l_error(yytext,' ');return ARROW;  }

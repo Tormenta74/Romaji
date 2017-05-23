@@ -14,7 +14,7 @@ int definition();
 int mn();
 //int assignment(); // taken care of when needed
 int nexp(int,int*);
-int bexp(int);
+int bexp(int,bool);
 //int signature(); // totally unnecesary
 //int main_sig(); // totally unnecesary
 //int arguments(); // replaced by for loop

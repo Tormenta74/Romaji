@@ -33,4 +33,4 @@ done
 echo -e "\$ ./cleanup.sh"
 ./cleanup.sh
 
-echo -e "\033[0;32m$compiled\033[0m out of 9 compiled"
+echo -e "\033[0;32m$compiled\033[0m out of 12 compiled"
