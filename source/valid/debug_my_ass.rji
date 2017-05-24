@@ -1,15 +1,10 @@
-omo:kyo
+
+kansu f:seisu <-
+    seisu:a
 {
+    
+}
 
-    seisu i <- 10
-
-    naka ! = i 0 {
-        -- i
-    }
-
-    naka & nise shin {
-        tsutaeru("fuck you compiler")
-    }
-
-    shi
+omo:kyo {
+    
 }

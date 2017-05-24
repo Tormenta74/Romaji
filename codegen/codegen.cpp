@@ -18,6 +18,14 @@ char *function_space[64]; // a somewhat random limit
 int current_statcode = 0;
 unsigned int stat_address = 0x11fff;
 
+// 1: marked as used
+int regs32[7] = {0,0,0,0,0,0,0}; 
+int regs64[4] = {0,0,0,0};
+int regs32_pushed[7] = {0};
+int regs64_pushed[7] = {0};
+
+int last_fetched_32_reg = 0;
+int last_fetched_64_reg = 0;
 
 /*==============================================*/
 /*= ** **        HELPER FUNCTIONS        ** ** =*/
@@ -124,7 +132,7 @@ int qgen_reserve_tag() {
 
 // writes a reserved label
 void qgen_write_reserved_tag(int label) {
-    qgen("L %d:\t// conditional guarded block",label);
+    qgen("L %d:\t",label);
 }
 
 // generate a goto instruction with the corresponding
@@ -149,15 +157,6 @@ void qgen_jmp(int label) {
     }
 }
 
-// pushes R1..R6 and RR0..RR3 to the top of the stack
-void qgen_push_regs() {
-
-}
-
-// pushes R1..R6 and RR0..RR3 to the top of the stack
-void qgen_pop_regs() {
-
-}
 
 // reserve memory
 
@@ -265,25 +264,101 @@ void qgen_scan(int type, unsigned int addr) {
 
 //stack
 
-void qgen_raise_stack() {
-    qgen("\tR7 = R7 - 4;");
+void qgen_raise_stack(int n) {
+    qgen("\tR7 = R7 - %d;",n);
 }
-void qgen_lower_stack() {
-    qgen("\tR7 = R7 - 4;");
+void qgen_lower_stack(int n) {
+    qgen("\tR7 = R7 + %d;",n);
 }
 
+// pushes R1..R6 to the top of the stack
+int *qgen_push_32_regs() {
+    int *pushed = (int*)malloc(4*sizeof(int));
+    for(int j=0; j<3; j++) {
+        pushed[j] = 0; // initialize to zero, just in case
+        if(regs64[j] == 1) {
+            pushed[j] = 1; // mark as pushed
+            regs32[j] = 0; // mark as free
+            qgen_raise_stack(8);
+            qgen("\tD(R7) = RR%d;", j); // 8 bytes
+        }
+    }
+    return pushed;
+}
+
+// pushes RR0..RR3 to the top of the stack
+int *qgen_push_64_regs() {
+    int *pushed = (int*)malloc(4*sizeof(int));
+    for(int j=0; j<3; j++) {
+        pushed[j] = 0; // initialize to zero, just in case
+        if(regs64[j] == 1) {
+            pushed[j] = 1; // mark as pushed
+            regs64[j] = 0; // mark as free
+            qgen_raise_stack(8);
+            qgen("\tD(R7) = RR%d;", j); // 8 bytes
+        }
+    }
+    return pushed;
+}
+
+void qgen_pop_32_regs(int *pushed) {
+    if(!pushed) return;
+    for(int i=0; i<6; i++)
+        if(pushed[i] == 1) {
+            qgen_lower_stack(4);
+            qgen("\tR%d = P(R7);",i);
+            regs32[i] = 1;
+        }
+    free(pushed);
+}
+
+void qgen_pop_64_regs(int *pushed) {
+    if(!pushed) return;
+    for(int i=0; i<6; i++)
+        if(pushed[i] == 1) {
+            qgen_lower_stack(4);
+            qgen("\tR%d = P(R7);",i);
+            regs64[i] = 1;
+        }
+    free(pushed);
+}
+
+void qgen_pop_result(int type) {
+    if(type == VOID)
+        return;
+    if(type == FLOAT) {
+        qgen_lower_stack(8);
+        qgen("\tRR%d = D(R7);",get_64_reg());
+    } else {
+        qgen_lower_stack(4);
+        qgen("\tR%d = %s(R7);",
+                get_32_reg(),type_access(type));
+    }
+}
+
+
 //TODO
-void qgen_push_par(int type, int offset, int reg) {
-    qgen("\t");
+void qgen_push_param(int type, int offset) {
+    qgen_raise_stack(8);
+    if(type == FLOAT) {
+        qgen("\tD(I7) = RR%d;",result_reg(type));
+    } else {
+        qgen("\t%s(I7) = RR%d;",
+                type_access(type),result_reg(type));
+    }
+}
+
+void qgen_get_param(int type, int offset) {
+    if(type == FLOAT) {
+        qgen("\tRR%d = D(R7+?);",
+                get_64_reg());
+    } else {
+        qgen("\tR%d = %s(R7+?);",
+                get_32_reg(),type_access(type));
+    }
 }
 
 // arithmetics
-
-int regs32[7] = {0,0,0,0,0,0,0};
-int regs64[4] = {0,0,0,0};
-
-int last_fetched_32_reg = 0;
-int last_fetched_64_reg = 0;
 
 // gets the first free 32 register
 int get_32_reg() {
@@ -335,13 +410,13 @@ void free_reg(int type, int reg) {
 }
 
 // store variable value
-void qgen_get_var(int type, int reg, unsigned int addr) {
+void qgen_get_var(int type, unsigned int addr) {
     if(type == FLOAT) {
         qgen("\tRR%d = D(0x%x);",
-                reg,addr);
+                get_64_reg(),addr);
     } else {
         qgen("\tR%d = %s(0x%x);",
-                reg,type_access(type),addr);
+                get_32_reg(),type_access(type),addr);
     }
 }
 
@@ -362,9 +437,6 @@ void qgen_bi_op(int oper, int type, int reg1, int reg2) {
     }
     free_reg(type,reg1);
     free_reg(type,reg2);
-}
-
-void qgen_log_op(int oper, int reg1, int reg2) {
 }
 
 void qgen_log_comp_op(int oper, int type, int reg1, int reg2) {
@@ -409,3 +481,4 @@ void qgen_assign(int type, unsigned int address) {
     }
     free_reg(type,result_reg(type));
 }
+

@@ -561,18 +561,12 @@ int code(int ret) {
                             yylval.sval);
                     return PARSE_ERR;
                 } else {
-                    char *sname = strdup(yylval.sval);
                     if (func_or_var == FUNC_T) {
                         verbose("code: symbol %s is a function",yylval.sval);
 
                         //in this instance we don't need to check the return type... nobody is expecting it!
-                        qgen_push_regs();
                         if(call() == PARSE_ERR)
                             return PARSE_ERR;
-
-                        qgen_jmp(sname);
-                        free(sname);
-                        qgen_pop_regs();
 
                         next = yylex();
                         verbose("code: token going into the next iteration: %s", yytext);
@@ -766,7 +760,7 @@ int code(int ret) {
                     next = yylex();
                     /* var/arg or call */
                     if(next == ID) {
-                        if(!find_in_table(yylval.sval,reg,&func_or_var,&type)) {
+                        if(!find_in_table(yylval.sval,reg,&func_or_var,&type,&address)) {
                             error("code: %s was not previously declared",
                                     yylval.sval);
                             return PARSE_ERR;
@@ -783,6 +777,11 @@ int code(int ret) {
                         } else { // ARG_T / VAR_T, but we don't quite care
                             verbose("code: returning a var / arg");
                             next = yylex();
+                            qgen_get_var(type,address);
+                            qgen("\tR0 = R%d;",result_reg(type));
+                            qgen_lower_stack(4);
+                            qgen("\tR6 = P(I7);");
+                            qgen("\tGT(R6);");
                             verbose("code: next after return is '%s'",yytext);
                             break;
                         }
@@ -824,7 +823,7 @@ int code(int ret) {
 }
 
 /*
- * Previous token: ? (but it is what yylex() has returned)
+ * Previous token: several
  * Description: parses an expression and
  * computes return type
  * Args: 
@@ -872,23 +871,21 @@ int nexp(int prev, int *ret_type) {
                     if(type == INT ||
                             type == UINT ||
                             type == CHAR) {
-                        qgen_get_var(type,get_32_reg(),address);
+                        qgen_get_var(type,address);
                     }
                     else if(type == FLOAT) {
-                        qgen_get_var(type,get_64_reg(),address);
+                        qgen_get_var(type,address);
                     }
                     return PARSE_OK;
                 } else if(func_or_var == ARG_T) {
+                    //TODO:
                     return PARSE_OK;
                 } else { /* found a function */
 
-                    qgen_push_regs();
                     /* check the call */
                     if(call() == PARSE_ERR)
                         return PARSE_ERR;
-                    qgen_pop_regs();
 
-                    qgen_jmp(name);
                     free(name);
                     return PARSE_OK;
                 }
@@ -967,27 +964,17 @@ int bexp(int prev, bool first_call) {
             } else if(func_or_var == VAR_T || func_or_var == ARG_T) { /* var/arg? either way, no such thing is allowed */
                 return PARSE_ERR;
             } else if(func_or_var == FUNC_T) { /* found a function */
-                char *name = strdup(yylval.sval);
 
-                qgen_push_regs(); // does this push the return address too?
                 /* check the call */
                 if(call() == PARSE_ERR)
                     return PARSE_ERR;
-                qgen_pop_regs();
-                // TODO
-                // we need a way of either knowing through
-                // which register the value is returning, orrr
-                // marking it as the last register
-
-                qgen_jmp(name);
-                free(name);
             }
 
             // thorugh here means correct call parsing,
             // and that means that result must be in R0
             // TODO: revisit this thought
             if(first_call)
-                qgen("\tIF(R0)");
+                qgen("\tIF(R%d)",result_reg(BOOL));
 
             return PARSE_OK;
 
@@ -1178,10 +1165,16 @@ int argument(int prev) {
  */
 int call() {
 
-    // save the registers and push to the stack
+    // This function does:
+    // save the registers
+    // push params to the stack
+    // push return address
+    // goto function label
+    // label return address
+    // pop result
 
     int numargs = 0;
-    int *param_types;
+    int *param_types, *pushed_32, *pushed_64;
     unsigned int label;
     char *fname;
 
@@ -1198,10 +1191,14 @@ int call() {
         param_types[i] = arg->get_return();
     }
 
+    // save the registers
+    pushed_32 = qgen_push_32_regs();
+    pushed_64 = qgen_push_64_regs();
+
     if(expect('(') == PARSE_ERR)
         return PARSE_ERR;
 
-    int param_count = 0, offset = 0, of_type, next;
+    int param_count = 0, of_type, next;
     next = yylex();
     while(next != ')') {
         /* just let the parameter() function take 
@@ -1209,13 +1206,12 @@ int call() {
         if(parameter(next,&of_type) == PARSE_ERR)
             return PARSE_ERR;
         verbose("call: parsed a %i type parameter",of_type);
-        if(param_types[param_count++] != of_type) {
+        if(param_types[param_count] != of_type) {
             error("call: parameter %i is of type %i when %s expects %i",
-                    param_count-1,of_type,fname,param_types[param_count-1]);
+                    param_count,of_type,fname,param_types[param_count]);
             return PARSE_ERR;
         }
-        offset+=type_length(of_type);
-        qgen_push_param();
+        qgen_push_param(of_type,param_count++);
         next = yylex();
     }
 
@@ -1227,11 +1223,18 @@ int call() {
 
     // save return address, goto label and then label said address
     label = qgen_reserve_tag();
-    qgen_raise_stack();
+    // push address
+    qgen_raise_stack(4);
     qgen("\tP(R7) = %d;",label);
     qgen_jmp(fname);
-    qgen("\tL %d:",label);
-    qgen_lower_stack();
+
+    // return label
+    qgen("L %d:",label);
+    // first thing to do is retrieve regs
+    qgen_pop_32_regs(pushed_32);
+    qgen_pop_64_regs(pushed_64);
+    // second thing is pop result
+    qgen_pop_result(func->get_return());
 
     free(fname);
     return PARSE_OK;
@@ -1254,25 +1257,12 @@ int parameter(int prev, int *type) {
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
     unsigned int address;
-    int dvalue;
-    double fvalue;
     if(prev == STR) {
         *type = STR;
         address = qgen_str(yylval.sval);
-        //qgen_param_reg(address);
+        qgen("\tR%d = 0x%x;",get_32_reg(),address);
         return PARSE_OK;
-    } else {
-        if(expression(prev,type) == PARSE_ERR)
-            return PARSE_ERR;
-        if(*type == BOOL) {
-            //TODO
-        } else if(*type == FLOAT) {
-
-        } else {
-
-        }
-        qgen(" ");
-        return PARSE_OK;
-    }
+    } 
+    return expression(prev,type);
 }
 
