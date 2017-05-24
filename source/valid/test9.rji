@@ -1,0 +1,11 @@
+omo:kyo
+{
+
+    seisu i <- 10
+
+    naka ! = i 0 {
+        -- i
+    }
+
+    shi
+}

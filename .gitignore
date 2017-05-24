@@ -1,7 +1,8 @@
 
 build/
+Q/
 
-rji
+rjicomp
 
 *.aux
 *.out

@@ -17,7 +17,8 @@ class SymbolRegister {
     unsigned int level;
     int type;   // var | arg | func
     int ret;    // type
-    int info;   // func: #args | var: none | arg: pos
+    unsigned int info;   
+        // func: #args | var: addr | arg: pos
     char *name;
 
 public:
@@ -28,7 +29,7 @@ public:
     unsigned int get_level();
     int get_type();
     int get_return();
-    int get_info();
+    unsigned int get_info();
     char* get_name();
 
     void set_level(unsigned int level);

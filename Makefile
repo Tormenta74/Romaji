@@ -11,14 +11,19 @@ LEXDIR = flex
 PARSEDIR = bison
 DESCDIR = rdparser
 SYMDIR = symtable
+CODDIR = codegen
 
 TARGET = rjicomp
 FLEXTARGET = rjilex
 BISONTARGET = rjiparse
 DRPTARGET = parser
 SYMTARGET = symtable
+CODTARGET = codegen
 
 # necessary files
+
+COD_O = $(BUILDDIR)/$(CODTARGET).o
+COD_C = $(CODDIR)/$(CODTARGET).cpp
 
 PAR_O = $(BUILDDIR)/$(DRPTARGET).o
 PAR_C = $(DESCDIR)/$(DRPTARGET).cpp
@@ -39,19 +44,29 @@ all: before rdparser_comp
 	@echo "Target \"$(TARGET)\" built. Bailing."
 
 before:
-	[ -d $(OBJDIR) ]  || mkdir -p $(OBJDIR)
+	[ -d $(BUILDDIR) ]  || mkdir -p $(BUILDDIR)
 
 clean:
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET)
+	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET) ./source/valid/*.q.c
 
-rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O)
+clean_compiled:
+	rm -f ./source/valid/*.q.c
+
+rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O) $(COD_O)
 	@echo -e "\nLinking $^"
 	$(CC) -o $(TARGET) $^ $(LDFLAGS)
 	@echo -e "------------"
 
-bison_comp: $(TAB_O) $(LEX_O) $(SYM_O)
+bison_comp: _lexer_with_bison _bison_comp
+	
+_bison_comp: $(TAB_O) $(LEX_O)
 	@echo -e "\nLinking $^"
 	$(CC) -o $(TARGET) $^ $(LDFLAGS)
+	@echo -e "------------"
+
+$(COD_O): $(COD_C)
+	@echo -e "\nCompiling the code generation module"
+	$(CC) -o $@ -c $< $(CFLAGS)
 	@echo -e "------------"
 
 $(PAR_O): $(PAR_C)
@@ -67,6 +82,11 @@ $(SYM_O): $(SYM_C)
 $(TAB_O): $(TAB_C)
 	@echo -e "\nCompiling $^"
 	$(CC) -o $@ -c $< $(CFLAGS)
+	@echo -e "------------"
+
+_lexer_with_bison: $(LEX_C)
+	@echo -e "\nCompiling $^ (using the bison parser)"
+	$(CC) -o $@ -c $< $(CFLAGS) -D_USING_BISON_PARSER
 	@echo -e "------------"
 
 $(LEX_O): $(LEX_C)

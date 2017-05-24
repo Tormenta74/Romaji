@@ -1,15 +1,10 @@
-kansu increment:kyo <- seisu:a {
-    ++ a
-}
 
-kansu decrement:kyo <- seisu:a {
-    -- a
-}
-
-omo:kyo
+kansu f:seisu <-
+    seisu:a
 {
-    seisu i <- uketoru
-    increment(i)
-    decrement(i)
-    shi
+    
+}
+
+omo:kyo {
+    
 }

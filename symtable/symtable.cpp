@@ -12,27 +12,21 @@ char* names(int i) {
             ret = strdup("seisu");
             break;
         case 268:
-            ret = strdup("naga seisu");
-            break;
-        case 269:
             ret = strdup("nashi seisu");
             break;
-        case 270:
+        case 269:
             ret = strdup("baito");
             break;
-        case 271:
+        case 270:
             ret = strdup("mojiretsu");
             break;
-        case 272:
+        case 271:
             ret = strdup("furotingu");
             break;
-        case 273:
-            ret = strdup("daburu");
-            break;
-        case 274:
+        case 272:
             ret = strdup("shinri");
             break;
-        case 275:
+        case 273:
             ret = strdup("kyo");
             break;
         default:
@@ -77,7 +71,7 @@ int SymbolRegister::get_return() {
     return this->ret;
 }
 
-int SymbolRegister::get_info() {
+unsigned int SymbolRegister::get_info() {
     return this->info;
 }
 

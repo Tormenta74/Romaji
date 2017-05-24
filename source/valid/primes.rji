@@ -31,10 +31,10 @@ omo:seisu {
     furotingu my_other_number
     seisu next_f <- -1
 
-    tsutaeru ("Introduce a prime number: ")
-    my_number <- uketoru
-    tsutaeru ("Introduce a floating point number: ")
-    my_other_number <- uketoru
+    tsutaeru ("Introduce a prime number: (33)")
+    my_number <- 33
+    tsutaeru ("Introduce a floating point number: (32.0)")
+    my_other_number <- 32.0
 
     my_other_number <- * -1.25 my_other_number
 
