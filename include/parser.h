@@ -1,6 +1,6 @@
 
-#ifndef _DR_PARSER_H
-#define _DR_PARSER_H
+#ifndef _RD_PARSER_H
+#define _RD_PARSER_H
 
 #define PARSE_OK 0
 #define PARSE_ERR 1
