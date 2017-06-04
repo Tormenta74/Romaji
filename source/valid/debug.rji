@@ -2,9 +2,10 @@
 kansu f:seisu <-
     seisu:a
 {
-    
+    kisu a
 }
 
 omo:kyo {
-    
+    seisu a
+    f(a)
 }

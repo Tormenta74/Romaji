@@ -1,11 +1,3 @@
-/*
- * Some clarifications:
- * - "definition" means a function is declared and
- *   its code defined.
- * - "declaration" means a variable is declared and
- *   possibly assigned a value.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,8 +8,32 @@
 #include "parser.h"
 #include "symtable.h"
 
+#define error(...) {\
+    sprintf(msg_buff,__VA_ARGS__);\
+    p_error(msg_buff);\
+}
+
+#define verbose(...) {\
+    sprintf(msg_buff,__VA_ARGS__);\
+    p_verbose(msg_buff);\
+}
+
+typedef struct {
+    YYSTYPE lexed;
+    char *text;
+    int code;
+} token;
+
+token prev, next;
+
+extern YYSTYPE yylval;
+extern char *yytext;
+extern FILE *yyin;
+
 int line=1;
 char msg_buff[256] = "";
+
+SymbolTable *table = new SymbolTable();
 
 // internal counter that actually defines
 // a sort of scope: it increments each on
@@ -25,11 +41,9 @@ char msg_buff[256] = "";
 // this means is that variables are actually
 // available to the rest of the function
 // after their declaration, no matter where
-// that is. it also means that we can have
-// name collision, so:
-// TODO: fix symbol table to accomodate for
-// this
+// that is.
 int func_counter = 0;
+
 // this variable is used every time a function
 // definition is parsed: it is incremented so
 // that each argument can be stored along with it's
@@ -37,11 +51,11 @@ int func_counter = 0;
 // parsed
 int local_num_args = 0;
 
-extern YYSTYPE yylval;
-extern char *yytext;
-extern FILE *yyin;
-
-SymbolTable *table = new SymbolTable();
+// return type of a code block: to be set when
+// the return type is found, and reset after function
+// code is finished (in case of main, it doesn't really
+// matter)
+int return_type = 0;
 
 /*==============================================*/
 /** ** **        HELPER FUNCTIONS        ** ** **/
@@ -60,16 +74,24 @@ void p_error(const char* msg) {
     fprintf(stderr,"parser@%i: syntax error " RED "%s" CLEAR_FORMAT "\n" ,line,msg);
 }
 
-#define error(...) {\
-    sprintf(msg_buff,__VA_ARGS__);\
-    p_error(msg_buff);\
-}
+// NOTE: to be consistent across the code, when a rule is
+// complete, the next token must already be lexed
+//
+// consumes a token
+void shift() {
+    int code = yylex();     // invokes yylex
 
-#define verbose(...) {\
-    sprintf(msg_buff,__VA_ARGS__);\
-    p_verbose(msg_buff);\
-}
+    //if(prev.text)
+    //free(prev.text);
+    prev = next;            // saves previous token
+    if(next.text)
+        free(next.text);
+    next.code = code;       // stores new info
+    next.lexed = yylval;
+    next.text = strdup(yytext);
 
+    verbose("shift: (%i,%s)",code,next.text);
+}
 
 // oneliner for checking if token is type keyword
 bool is_type(int token) {
@@ -104,43 +126,6 @@ bool is_logic_oper(int token) {
         token == '!';
 }
 
-// use when there is no room for ambiguity:
-// prints error and returns error code
-int expect(int expected, bool type=false) {
-    int next = yylex();
-    if(type) { // ignore expected
-        if(!is_type(next)) {
-            error("unexpected token %s (code %i); expected a type",
-                    yytext,next);
-            if(yytext) free(yytext);
-            return PARSE_ERR;
-        }
-        return next; // type
-    }
-    else if(next != expected) {
-        error("unexpected token %s (code %i); expected %i",
-                yytext,next,expected);
-        if(yytext) free(yytext);
-        return PARSE_ERR;
-    }
-    return next;
-}
-
-// discards token like a maniac until it finds '}'
-// or dies in the attempt
-int drop_until_brace() {
-    int next, i=0;
-    while((next = yylex()) != '}') {
-        error("** dropping \"%s\" token",yytext);
-    } if(next != '}') {
-        error("reached end of file: '{' is not closed");
-        return PARSE_ERR;
-    }
-    if(i != 0)
-        return PARSE_ERR;
-    return PARSE_OK;
-}
-
 // finds a name in the symbol table and puts the relevant info in the pointers passed
 bool find_in_table(char *name, SymbolRegister *r, int *func_or_var, int *type, unsigned int *info=NULL) {
     r = table->get_symbol(name,table->get_scope()); // if not, search in the global scope
@@ -156,67 +141,84 @@ bool find_in_table(char *name, SymbolRegister *r, int *func_or_var, int *type, u
 
 // auxiliar, but almost part of the code: it
 // settles between boolean and numeric expressions
-int expression(int prev, int *ret_type) {
-    if(is_num_oper(prev)
-            || prev == FLO_N
-            || prev == INT_N) {
-        verbose("expression: parsing numerical expression");
-        return nexp(prev,ret_type);
+// !! only called once
+int expression() {
+    if(is_num_oper(next.code)
+            || next.code == FLO_N
+            || next.code == INT_N) {
+        return nexp();
     }
-    if(is_logic_oper(prev)
-            || prev == TRUE
-            || prev == FALSE) {
-        verbose("expression: parsing logical expression");
-        *ret_type = BOOL;
-        return bexp(prev,true);
+    if(is_logic_oper(next.code)
+            || next.code == TRUE
+            || next.code == FALSE) {
+        return bexp(true);
     }
-    if(prev == ID) {
+    if(next.code == ID) {
         SymbolRegister *reg = NULL;
         int func_or_var, type;
-        if(!find_in_table(yylval.sval,reg,&func_or_var,&type)) {
-            error("expression: %s was not previously declared",yylval.sval);
+        if(!find_in_table(next.text,reg,&func_or_var,&type)) {
+            error("expression: %s was not previously declared",next.text);
             return PARSE_ERR;
         }
         if(type == BOOL) {
-            verbose("expression: parsing logical expression");
-            *ret_type = BOOL;
-            return bexp(prev,true);
+            return bexp(true);
         } else if(type != VOID) {
-            verbose("expression: parsing numerical expression");
-            return nexp(prev,ret_type);
+            return nexp();
         }
     }
     return PARSE_ERR;
 }
 
+// discards token like a maniac until it finds '}'
+// or dies in the attempt
+int drop_until_brace() {
+    int i=0;
+    while(true) {
+        error("***: dropping \"%s\" token",next.text);
+        shift();
+        if(next.code == '}') {
+            break;
+        }
+        if(next.code == 0) {
+            error("***: reached end of file: '{' is not closed");
+            return PARSE_ERR;
+        }
+        i++;
+    }
+    if(i != 0)
+        return PARSE_WARN;
+
+    shift();
+
+    return PARSE_OK;
+}
 
 /*==============================================*/
 /** ** ** ** **   MAIN FUNCTION    ** ** ** ** **/
 /*==============================================*/
 
 int main(int argc, char *argv[]) {
-    if(argc>1)
+    int ret;
+
+    if(argc == 2) {
         if((yyin = fopen(argv[1],"r")) == NULL)
             return -1;
-    // use q_line as temporary buffer to store filename
-    sprintf(msg_buff,argv[1]);
-
-    try {
-        init_q_file(strcat(msg_buff,".q.c"));
-    } catch(const char *msg) {
-        fprintf(stderr,msg);
+        sprintf(msg_buff,argv[1]);
+        try {
+            init_q_file(strcat(msg_buff,".q.c"));
+        } catch(const char *msg) {
+            fprintf(stderr,msg);
+        }
+        verbose("Entry point: object file initialized*");
+        ret = program();
+        qgen("END\n");
+        quit_codegen();
+    } else {
+        ret = program();
     }
-    verbose("Entry point: object file initialized*");
-
-    int ret = program();
-
-    qgen("END\n");
-    quit_codegen();
-
-    fflush(stdout);
     if(ret == PARSE_OK)
-        printf(BOLD GREEN "Holy shit, it compiled!\n" CLEAR_FORMAT);
-    printf("return: %i\nState of the symbol table:\n",ret);
+        printf(BOLD GREEN "Compilation OK\n" CLEAR_FORMAT);
+    printf("Returned: %i\nState of the symbol table:\n",ret);
     table->print();
     return ret;
 }
@@ -225,40 +227,39 @@ int main(int argc, char *argv[]) {
 /** ** ** ** **  RULE FUNCTIONS ** ** ** ** ** **/
 /*==============================================*/
 
-
 /*
  * Previous token: none
  * Description: Program is a series of declarations
  * | definitions plus the main function.
- * Lookahead: 1
  * Eq. rule:
  *      (declaration | definition)* main
  */
 int program() {
-    int next = yylex(), peek;
-    while(next != MAIN) {
+    shift();
+    while(next.code != MAIN) {
         /* verify declaration correct */
-        if(is_type(next)) {
+        if(is_type(next.code)) {
             verbose("program: perceived type keyword");
-            if(declaration(next,&peek) == PARSE_ERR)
+            if(declaration() == PARSE_ERR)
                 return PARSE_ERR;
-            next = peek; // in declaration we peeked +1 ahead
         }
 
         /* verify definition correct */
-        else if(next == FUNC) {
+        else if(next.code == FUNC) {
             verbose("program: perceived function keyword");
             if(definition() == PARSE_ERR)
                 return PARSE_ERR;
-            next = yylex();
         }
         /* not main and not the previous */
         else {
             error("program: unexpected token %s (code %i)",
-                    yytext,next);
+                    next.text,next.code);
             return PARSE_ERR;
         }
-    }
+
+        // already shifted in either declaration or definition
+    } 
+
     return mn();
 }
 
@@ -267,145 +268,121 @@ int program() {
  * Description: consists of a type keyword, an
  * identifier and optionally an asignment. in
  * order to figure out if an assignment is next,
- * it consumes one extra token, which is stored in
- * *peeked.
- * Lookahead: 2
+ * it consumes one extra token
  * Eq. rule:
  *      {type} ID ("<-" nexp)?
  */
-int declaration(int prev, int *peeked) {
-    int next, expected_type = prev, parsed_type;
-    unsigned int addr, string_size = 0;
+int declaration() {
+    // TODO: draw a nice grammar graph for this
+    int expected_type, parsed_type, current_scope = table->get_scope();
+    unsigned int addr = 0, string_size = 0;
     char *name;
 
-    verbose("declaration: type keyword detected: %s",yytext);
+    expected_type = next.code; // save the type
 
-    if(expect(ID) == PARSE_ERR)
+    shift();
+
+    if(next.code != ID) {
+        error("declaration: expected identifier, got %s",next.text);
         return PARSE_ERR;
-    name = strdup(yylval.sval);
-    verbose("declaration: identifier taken");
+    }
+    name = strdup(next.text);
+    verbose("declaration: identifier %s taken", name);
 
-    // managing the strings separately
-    if(expected_type == STRING) {
-        if(expect('[') == PARSE_ERR) {
-            error("declaration: strings must be declared with brackets");
+    shift();
+
+    if(next.code == '[') {
+        if(expected_type != STRING) {
+            error("declaration: brackets are only meant for string variables");
+            free(name);
             return PARSE_ERR;
-        }
+        } 
 
-        next = yylex();
-        if(next == INT_N) {
-            if(yylval.dval < 1) {
+        // handle the possible number and closing bracket
+
+        shift();
+
+        if(next.code == INT_N) {
+            if(next.lexed.dval < 1) {
                 error("declaration: can't declare a negative sized string var");
+                free(name);
                 return PARSE_ERR;
             }
-            string_size = yylval.dval;
-            next = yylex();
+            string_size = next.lexed.dval;
+            shift();
         }
 
-        if(next != ']') {
+        if(next.code != ']') {
             error("declaration: brackets not closed!");
+            free(name);
             return PARSE_ERR;
         }
 
-        next = yylex();
-        if(next != ARROW) {
-            if(string_size == 0) {
-                error("declaration: can't declare string without explicit size or initialization");
-                return PARSE_ERR;
-            } else {
-                // string declared alone with a size:
-                addr = qgen_str_var(string_size);
-                *peeked = next;
-                goto store_and_exit;
-            }
-        } else {
-            // next is arrow, so go ahead
-            next = yylex();
-            if(next == STR) {
-                if(string_size != 0) { // size + literal
-                    if(string_size < strlen(yylval.sval)) {
-                        error("declaration: declared size is smaller than string literal length");
-                        return PARSE_ERR;
-                    }
-                    addr = qgen_str_var(string_size,yylval.sval);
-                } else { // only literal
-                    addr = qgen_str_var(yylval.sval);
-                }
-            } else if(next == SCAN) {
-                if(string_size != 0) { // size + scan
-                    addr = qgen_str_var_scan(string_size);
-                } else { // only scan
-                    error("declaration: must declare size before initializing with a scan call");
-                    return PARSE_ERR;
-                }
+        shift();
+    } // case '[' dealt with
 
-            } else {
-                error("declaration: strings must be initialized via a literal string\
-                        or a scan call");
+    //TODO: qgen - store
+
+    if(next.code == ARROW) {
+        // next is arrow, so go ahead
+
+        shift();
+
+        if(next.code == STR) {
+            if(expected_type != STRING) { // literal string
+                error("declaration: trying to assign string literal to non string variable");
+                free(name);
                 return PARSE_ERR;
             }
-            next = yylex();
-            *peeked = next;
-            goto store_and_exit;
+
+            // TODO: qgen - str literal assignment
+
+            shift();
+
+        } else if(next.code == SCAN) { // uketoru
+            if(expected_type == STRING && string_size == 0) {
+                error("declaration: can't declare string without explicit size when initializing by scanning");
+                free(name);
+                return PARSE_ERR;
+            }
+
+            // TODO: qgen - scan assignment
+
+            shift();
+
+        } else { // not a string literal, not uketoru => nexp
+            if((parsed_type = nexp()) == PARSE_ERR) {
+                free(name);
+                return PARSE_ERR;
+            }
+            if(expected_type != parsed_type) {
+                error("declaration: %s was declared as %i; tried to assign type %i",
+                        name,expected_type,parsed_type);
+                free(name);
+                return PARSE_ERR;
+            }
+
+            // TODO: qgen - assignment
+
+            // already shifted in nexp()
         }
-    }
+    } // case "<-" dealt with
 
-    addr = qgen_var(expected_type);
-
-    next = yylex();
-    verbose("declaration: token after id is %s",yytext);
-    if(next != ARROW) {
-        verbose("declaration: no-assignment");
-        *peeked = next;
-        goto store_and_exit;
-    }
-
-    verbose("declaration: perceived arrow");
-    // next is arrow, a.k.a. useless here
-    next = yylex();
-    verbose("declaration: token after arrow is %s",yytext);
-
-    // a scan assignment
-    if(next == SCAN) {
-        verbose("declaration: oh, a scan call!");
-        *peeked = yylex();
-        goto store_and_exit; // done with it
-    }
-
-    // a literal string assingment
-    if(next == STR) {
-        error("declaration: assigning a literal string to a non string variable");
-        return PARSE_ERR;
-    }
-
-    if(nexp(next,&parsed_type) == PARSE_ERR) {
-        return PARSE_ERR;
-    }
-    if(expected_type != parsed_type) {
-        error("declaration: %s was declared as %i; tried to assign type %i",
-                name,expected_type,parsed_type);
-        free(name);
-        return PARSE_ERR;
-    }
-    // passing through here means an assignment
-    qgen_assign(expected_type,addr);
-    *peeked = yylex();
-
-store_and_exit:
     try {
         table->store_symbol(VAR_T, expected_type, addr, name);
     } catch(const char* msg) {
         p_error(msg);
         return PARSE_ERR;
     }
+
     verbose("declaration: symbol %s successfully stored",name);
     free(name);
+
     return PARSE_OK;
 }
 
 /*
  * Previous token: "kansu" (no need to use it)
- * Lookahead: 1
  * Description: process tokens until '}', meaning
  * the function body is complete. very clean
  * Eq. rule:
@@ -413,44 +390,65 @@ store_and_exit:
  *      '{' code '}'
  */
 int definition() {
-    int ret,next;
     local_num_args = 0;
 
+    shift();
 
-    if(expect(ID) == PARSE_ERR) //identifier
+    if(next.code != ID) {
+        error("definition: expected identifier, got %s",next.text);
         return PARSE_ERR;
-    verbose("processed: identifier");
-    /* save the name */
+    }
+
     char *name = strdup(yylval.sval);
+    verbose("definition: function identifier %s taken",name);
+
+    // tag for future calls
     qgen_tag(name);
 
-    if(expect(':') == PARSE_ERR) //:
-        return PARSE_ERR;
-    verbose("processed: ':'");
+    shift();
 
-    if((ret = expect(0,true)) == PARSE_ERR) //type
+    if(next.code != ':') {
+        error("definition: expected ':', got %s",next.text);
         return PARSE_ERR;
-    verbose("processed: return type");
-
-    if(expect(ARROW) == PARSE_ERR) //<-
-        return PARSE_ERR;
-
-    /* ambiguity! */
-    next = yylex();
-    func_counter++;
-    table->set_scope(func_counter);
-    while(next != '{') { /* still not the code */
-        verbose("processed: argument");
-        if(argument(next) == PARSE_ERR)
-            return PARSE_ERR;
-        local_num_args++;
-        next = yylex();
     }
-    // everything ok up to here, so we register the function
-    // on the global scope, so it is available everywhere
+
+    shift();
+
+    if(!is_type(next.code)) {
+        error("definition: expected type, got %s",next.text);
+        return PARSE_ERR;
+    }
+    return_type = next.code;
+    verbose("definition: function %s has return type %i",name,return_type);
+
+    shift();
+
+    if(next.code != ARROW) {
+        error("definition: expected arrow, got %s",next.text);
+        return PARSE_ERR;
+    }
+
+    shift();
+
+    table->set_scope(++func_counter);
+
+    while(next.code != '{') { /* still not the code */
+        verbose("definition@%i: next.code = %i",__LINE__,next.code);
+        if(argument() == PARSE_ERR)
+            return PARSE_ERR;
+
+        local_num_args++;
+        verbose("definition: defined %ith argument",local_num_args);
+
+        // already shifted in argument()
+    }
+
+    verbose("definition: defined a total of %i arguments",local_num_args);
+
+    //register the function on the global scope
     table->set_scope(0);
     try {
-        table->store_symbol(FUNC_T, ret, local_num_args, name);
+        table->store_symbol(FUNC_T, return_type, local_num_args, name);
     } catch(const char* msg) {
         p_error(msg);
         return PARSE_ERR;
@@ -458,367 +456,428 @@ int definition() {
     table->set_scope(func_counter);
     local_num_args = 0;
 
-    return code(ret);
+    // next is '{', so go ahead
+    shift();
+
+    if(code() == PARSE_ERR)
+        return PARSE_ERR;
+
+    // code is parsed: reset return_type
+    return_type = 0;
+    return PARSE_OK;
 }
+
 
 /*
  * Previous token: "omo" (no need to use it)
  * Description: very similar to the function parsing
- * Args: none
- * Lookahead: 1
  * Eq. rule:
  *      "omo" ':' {kyo | seisu}
  *      '{' code '}'
  */
 int mn() {
-    int ret;
-    /* we are DONE with function declarations: we can now only access
-     * global variables (scope: 0) and those declared */
-    table->set_scope(0);
-    if(expect(':') == PARSE_ERR) //:
-        return PARSE_ERR;
 
-    if((ret = expect(0,true)) == PARSE_ERR) //type
+    table->set_scope(++func_counter); // last time this is called
+
+    // next is "omo", so go ahead
+    shift();
+
+    if(next.code != ':') {
+        error("main: expected ':', got %s",next.text);
         return PARSE_ERR;
-    if(ret != VOID && ret != INT) {
+    }
+
+    shift();
+
+    if(!is_type(next.code)) {
+        error("main: expected return type, got %s",next.text);
+        return PARSE_ERR;
+    } else {
+        return_type = next.code;
+    }
+    if(return_type != VOID && return_type != INT) {
         error("main function cannot be of a type \
                 other than \"kyo\" or \"seisu\"");
         return PARSE_ERR;
     }
 
-    if(expect('{') == PARSE_ERR) // {
+    shift();
+
+    if(next.code != '{') {
+        error("main: expected '{', got %s",next.text);
+        return PARSE_ERR;
+    }
+
+    qgen("L 0:\t\t// entry point");
+
+    // next is '{', so go ahead
+    shift();
+
+    if(code() == PARSE_ERR)
         return PARSE_ERR;
 
-    qgen("L 0:\t// entry point");
-    return code(ret);
+    // code is parsed: reset return_type
+    return_type = 0;
+    return PARSE_OK;
 }
 
 /*
- * Previous token: '{' (no need to use it)
- * Description: checks for code integrity and
+ * no previous token
+ * description: checks for code integrity and
  * for return type.
- * Args:
- *   - ret: the expected return type
- * Lookahead: 2
- * Eq. rule:
+ * eq. rule:
  *      '{' {better see the grammar for this rule} '}'
  */
-int code(int ret) {
+int code() {
 
-    // the call() code will save the registers and push the params
-    // to the stack, so everytime we use that code we must write a jmp
-    // instruction and a retrieval of the registers
-    int next = yylex(), func_or_var, type;
+    int func_or_var, type;
     int plus_or_minus; // if we save the + / - we can avoid repeating their code twice
-    int actual_ret = ret; // relevant in the RET case
+
     int param_count = 0, offset = 0, of_type;
     unsigned int address, label1, label2, label3;
     SymbolRegister *reg = NULL;
-    while(next != '}') {
-        verbose("code: next statement starts with %s",yytext);
-        switch(next) {
-            /* the incrementor and decrementor operators:  *
-             * we have to check for the "twin", and if not *
-             * found the expression makes no sense         */
-            case '-':
-            case '+':
-                // look ahead for twin
-                // if found, look for identifier
-                // else parse two expressions
-                plus_or_minus = next;
-                next = yylex();
-                if(next == plus_or_minus) { // the perceived operand, + or -
-                    next = yylex();
-                    if(next != ID) {
-                        error("code: expected an integer variable, but got %s",
-                                yytext);
-                        return PARSE_ERR;
-                    } else if(!find_in_table(yylval.sval,reg,&func_or_var,&type,&address)) { // reuse the variables
-                        return PARSE_ERR;
-                    } else if(func_or_var == FUNC_T) {
-                        error("code: can't apply a unary operator on a function call");
-                        return PARSE_ERR;
-                    } else if(type != INT && type != UINT) {
-                        error("code: can't apply a unary operator on a non integer variable (type is %i)",
-                                type);
-                        return PARSE_ERR;
-                    }
-                    verbose("code: incre/decrementing variable %s",yylval.sval);
-                    // increment magic!
-                    qgen_un_op(plus_or_minus,type,address);
-                    next = yylex();
-                    break;
-                } else {
-                    // just making my life easier
-                    error("code: expressions in the wild make no sense");
+
+    if(next.code == '}') {
+        verbose("code: first token of code is '}'");
+        shift();
+        return PARSE_WARN;
+    }
+
+    while(next.code != '}') {
+        verbose("code: next statement starts with %s",next.text);
+
+        switch(next.code) {
+        case '-':
+        case '+':
+            // look ahead for twin
+            // if found, look for identifier
+            // else parse two expressions
+            plus_or_minus = next.code;
+
+            shift();
+
+            if(next.code == plus_or_minus) { // the perceived operand, + or -
+
+                shift();
+
+                if(next.code != ID) { // not a symbol
+                    error("code: expected an integer variable, but got %s",
+                            next.text);
+                    return PARSE_ERR;
+                } else if(!find_in_table(next.text, reg, &func_or_var, &type, &address)) { // not a declared symbol
+                    return PARSE_ERR;
+                } else if(func_or_var == FUNC_T) { // not a variable
+                    error("code: can't apply a unary operator on a function call");
+                    return PARSE_ERR;
+                } else if(type != INT && type != UINT) { // not an int
+                    error("code: can't apply a unary operator on a non integer variable (type is %i)",
+                            type);
                     return PARSE_ERR;
                 }
-            case ID:
-                /* a call or an assignment */
-                verbose("code: checking the symbol table");
-                if(!find_in_table(yylval.sval,reg,&func_or_var,&type,&address)) {
-                    error("code: %s was not previously declared",
-                            yylval.sval);
-                    return PARSE_ERR;
-                } else {
-                    if (func_or_var == FUNC_T) {
-                        verbose("code: symbol %s is a function",yylval.sval);
 
-                        //in this instance we don't need to check the return type... nobody is expecting it!
-                        if(call() == PARSE_ERR)
-                            return PARSE_ERR;
+                // increment magic!
+                verbose("code: increment magic");
+                qgen_un_op(plus_or_minus,type,address);
 
-                        next = yylex();
-                        verbose("code: token going into the next iteration: %s", yytext);
-                        break; // will this break out of the switch, or the while?
-                    } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
-                        verbose("code: symbol %s is a var / arg",yylval.sval);
-                        // look for asignment
-                        if(expect(ARROW) == PARSE_ERR)
-                            return PARSE_ERR;
+                shift();
 
-                        int expected_ret = type,
-                            parsed_ret;
+                break;
+            }
+            else {
+                // just making my life easier
+                error("code: expressions in the wild make no sense");
+                return PARSE_ERR;
+            }
+        case ID:
+            /* a call or an assignment */
+            if(!find_in_table(next.text,reg,&func_or_var,&type,&address)) {
+                error("code: %s was not previously declared",
+                        next.text);
+                return PARSE_ERR;
+            } else {
+                if (func_or_var == FUNC_T) {
+                    //in this instance we don't need to check the return type... nobody is expecting it!
+                    if(call() == PARSE_ERR)
+                        return PARSE_ERR;
 
-                        // next is arrow, so we go ahead
-                        next = yylex();
-                        verbose("code: token after assignment arrow is %s",yytext);
-                        if(next == STR) {
-                            unsigned int str_addr = qgen_str(yylval.sval);
-                            if(type == STRING) {
-                                verbose("code: correct string assignment");
+                    // already shifted in call();
 
-                                qgen("\tS(0x%x) = 0x%x;",address,str_addr);
+                    break;
+                } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
 
-                                next = yylex();
-                                break;
-                            } else {
-                                error("code: trying to assign a string literal to a %i var/arg",
-                                        type);
-                                return PARSE_ERR;
-                            }
-                        }
-                        if(next == SCAN) {
-                            verbose("code: oh, a scan call!");
-                            qgen_scan(type,address);
-                            next = yylex();
+                    // TODO: qgen - fetch arg/var address
+
+                    // look for asignment
+                    shift();
+
+                    if(next.code != ARROW) {
+                        error("code: expected assignment arrow, got %s",
+                                next.text);
+                        return PARSE_ERR;
+                    }
+
+                    int expected_ret = type,
+                        parsed_ret;
+
+                    // next is arrow, so we go ahead
+                    shift();
+
+                    if(next.code == STR) {
+                        // reserve mem for string literal
+                        unsigned int str_addr = qgen_str(yylval.sval);
+
+                        if(type == STRING) {
+                            qgen("\tS(0x%x) = 0x%x;",address,str_addr);
+
+                            shift();
                             break;
-                        }
-                        if(nexp(next,&parsed_ret) == PARSE_ERR)
-                            return PARSE_ERR;
-                        if(expected_ret != parsed_ret) {
-                            error("code: trying to assign a %i value to %s, which is of type %i",
-                                    parsed_ret,reg->get_name(),expected_ret);
+                        } else {
+                            error("code: trying to assign a string literal to a %i var/arg",
+                                    type);
                             return PARSE_ERR;
                         }
+                    }
+                    if(next.code == SCAN) {
+                        verbose("code: oh, a scan call!");
 
-                        qgen_assign(type,address);
+                        // TODO: qgen_scan(type,address);
 
-                        // done with the assignment
-                        next = yylex();
+                        shift();
                         break;
                     }
-                }
-            case IF:
-                // write the whole if block
-
-                // we reserve 3 labels:
-                // one for the first code block, another for the 
-                // second (or the end of such code block) and another
-                // for the end of the second block, if there is any
-                label1 = qgen_reserve_tag();
-                label2 = qgen_reserve_tag();
-                label3 = qgen_reserve_tag();
-
-                // bexp writes the necessary operations
-                next = yylex();
-                if(bexp(next,true) == PARSE_ERR) // check for the condition
-                    return PARSE_ERR;
-
-                // after condition, jump to reserved label
-                qgen_jmp(label1);
-                // inmediately afterwards, jump to the end of that codeblock
-                // this will only happen if the condition is not met
-                qgen_jmp(label2);
-
-                if(expect('{') == PARSE_ERR) {
-                    error("code: sorry, but conditional statements must be surrounded by curly brackets");
-                }
-
-                // put the reserved label before first block
-                qgen_write_reserved_tag(label1);
-
-                // magic trick of multipliying and dividing to 
-                // tell the code funct that we are in a code block
-                if(code(ret*1000) == PARSE_ERR) // consumes the closing '}'
-                    return PARSE_ERR;
-
-                next = yylex(); // look ahead for ELSE
-                if(next == ELSE) {
-
-                    // before we start with the second block, we jump ahead:
-                    // this happens at the end of the first guarded block
-                    qgen_jmp(label3);
-
-                    // and now we pin point the second code block
-                    qgen_write_reserved_tag(label2);
-
-                    verbose("code: perceived ELSE after IF");
-                    if(expect('{') == PARSE_ERR) {
-                        error("code: sorry, but conditional statements must be surrounded by curly brackets");
-                    }
-                    if(code(ret*1000) == PARSE_ERR) // consumes the closing '}' // does it??
+                    if((parsed_ret = nexp()) == PARSE_ERR)
                         return PARSE_ERR;
-                    next = yylex();
-                }
-                
-                // put the reserved label for the end of the first (or second,
-                // in case of an else statement) block
-                qgen_write_reserved_tag(label3);
-
-                break; // next token already fetched
-            case WHILE:
-                /* include here bexpr, the '{' code '}' */
-
-                // reserve three tags:
-                // - one for before the condition check
-                // - one for the beginning of the block
-                // - one for the end of the block
-                label1 = qgen_reserve_tag();
-                label2 = qgen_reserve_tag();
-                label3 = qgen_reserve_tag();
-
-                next = yylex();
-
-                // before the condition computation
-                qgen_write_reserved_tag(label1);
-                if(bexp(next,true) == PARSE_ERR) // check for the condition
-                    return PARSE_ERR;
-                // if condition met, jump to the block
-                qgen_jmp(label2);
-                // else, jump to the end
-                qgen_jmp(label3);
-
-                if(expect('{') == PARSE_ERR) {
-                    error("code: sorry, but conditional statements must be surrounded by curly brackets");
-                }
-
-                // beginning of the block
-                qgen_write_reserved_tag(label2);
-                if(code(ret*1000) == PARSE_ERR) // consumes the closing '}'
-                    return PARSE_ERR;
-                // jump to the condition computation
-                qgen_jmp(label1);
-                // end of the block (previous jump is included in the block)
-                qgen_write_reserved_tag(label3);
-
-                next = yylex(); // done with this statement
-                break; // next token already fetched
-            case PRINT:
-                /* parse '(' parameter* ')' */
-                if(expect('(') == PARSE_ERR)
-                    return PARSE_ERR;
-
-                next = yylex();
-                while(next != ')') {
-                    /* just let the parameter() function take 
-                     * care of it, then check param type */
-                    if(parameter(next,&of_type) == PARSE_ERR)
-                        return PARSE_ERR;
-                    verbose("code: (print) parsed a %i type parameter",of_type);
-                    param_count++;
-                    offset+=type_length(of_type);
-                    next = yylex();
-                }
-
-                next = yylex(); // done with this statement
-                break;
-            case RET:
-                /* several things here:
-                 * -check for parameter, and for type correctness *
-                 * -also, throw error if func is not VOID and no  *
-                 *  parameters are found                          *
-                 * -check for '}': ret is final to a code block   *
-                 *    -if not found, print error and iterate      *
-                 *    through tokens until one is found (doing    *
-                 *    nothing with them) and see what happens     */
-                int parsed_ret;
-                while(actual_ret > 1000) {// we are actually inside a conditional code block
-                    verbose("we are actually inside a conditional guarded code block (ret = %i > 1000)",ret);
-                    actual_ret = actual_ret / 1000;
-                }
-
-                if(actual_ret == VOID) {
-                    if(expect('}') == PARSE_ERR) {
-                        p_error("code: returning something in a void function!");
+                    if(expected_ret != parsed_ret) {
+                        error("code: trying to assign a %i value to %s, which is of type %i",
+                                parsed_ret,reg->get_name(),expected_ret);
                         return PARSE_ERR;
                     }
-                    qgen("\tR0=0;\t// no return");
-                    qgen("\tGT(R6);// go up the caller");
-                    return PARSE_OK;
-                } else {
-                    next = yylex();
-                    /* var/arg or call */
-                    if(next == ID) {
-                        if(!find_in_table(yylval.sval,reg,&func_or_var,&type,&address)) {
-                            error("code: %s was not previously declared",
-                                    yylval.sval);
-                            return PARSE_ERR;
-                        } else if(type != actual_ret) { // return type coherence check
-                            error("code: expected %i return type: %s is of %i type",
-                                    actual_ret,reg->get_name(),type);
-                            return PARSE_ERR;
-                        } else if(func_or_var == FUNC_T) {
-                            verbose("code: returning a function call");
-                            if(call() == PARSE_ERR)
-                                return PARSE_ERR;
-                            next = yylex();
-                            break;
-                        } else { // ARG_T / VAR_T, but we don't quite care
-                            verbose("code: returning a var / arg");
-                            next = yylex();
-                            qgen_get_var(type,address);
-                            qgen("\tR0 = R%d;",result_reg(type));
-                            qgen_lower_stack(4);
-                            qgen("\tR6 = P(I7);");
-                            qgen("\tGT(R6);");
-                            verbose("code: next after return is '%s'",yytext);
-                            break;
-                        }
-                    }
-                    /* expression */
-                    else if(expression(next,&parsed_ret) == PARSE_ERR) {
-                        return PARSE_ERR;
-                    } else if(parsed_ret != actual_ret) {
-                        error("expression returns type %i, when function returns type %i",
-                                parsed_ret,actual_ret);
-                        return PARSE_ERR;
-                    }
-                    verbose("code: returning an expression!");
-                    next = yylex();
+                    // already shifted in nexp()
+
+                    // TODO: qgen_assign(type,address);
+
                     break;
                 }
-            case EXIT:
-                /* drop_until_brace takes care of things and effectively
-                 * consumes the closing bracket (if found) */
-                if(drop_until_brace() == PARSE_ERR)
-                    return PARSE_ERR;
-                qgen("\tR0=0;\t// no return");
-                qgen("\tGT(-2);\t// exit");
-                return PARSE_OK;
-            default: /* check for variable declarations, and if not, well, wtf */
-                if(!is_type(next)) {
-                    error("code: unexpected token %s (code %i)",
-                            yytext,next);
+            }
+        case IF:
+            // we reserve 3 labels:
+            // one for the first code block, another for the 
+            // second (or the end of such code block) and another
+            // for the end of the second block, if there is any
+            label1 = qgen_reserve_tag();
+            label2 = qgen_reserve_tag();
+            label3 = qgen_reserve_tag();
+
+            // bexp writes the necessary operations
+            shift();
+            if(bexp(true) == PARSE_ERR) // check for the condition
+                return PARSE_ERR;
+
+            // after condition, jump to reserved label
+            qgen_jmp(label1);
+            // inmediately afterwards, jump to the end of that codeblock
+            // this will only happen if the condition is not met
+            qgen_jmp(label2);
+
+            // alreade shifted in bexp()
+
+            if(next.code != '{') {
+                error("code: conditional statements must be surrounded by curly brackets");
+                return PARSE_ERR;
+            }
+
+            // put the reserved label before first block
+            qgen_write_reserved_tag(label1);
+
+            shift();
+
+            if(code() == PARSE_ERR)
+                return PARSE_ERR;
+
+            // already shifted in code()
+
+            if(next.code == ELSE) {
+
+                // before we start with the second block, we jump ahead:
+                // this happens at the end of the first guarded block
+                qgen_jmp(label3);
+
+                // and now we pin point the second code block
+                qgen_write_reserved_tag(label2);
+
+                shift();
+
+                if(next.code != '{') {
+                    error("code: conditional statements must be surrounded by curly brackets");
                     return PARSE_ERR;
                 }
-                /* it's a type keyword, so we expect a declaration */
-                if(declaration(next,&next) == PARSE_ERR)
+
+                shift();
+
+                if(code() == PARSE_ERR)
                     return PARSE_ERR;
-                verbose("code: token after declaration: %s",
-                        yytext);
+
+                // already shifted in code()
+            }
+
+            // put the reserved label for the end of the first (or second,
+            // in case of an else statement) block
+            qgen_write_reserved_tag(label3);
+
+            break; // next token already fetched
+        case WHILE:
+            // reserve three tags:
+            // - one for before the condition check
+            // - one for the beginning of the block
+            // - one for the end of the block
+            label1 = qgen_reserve_tag();
+            label2 = qgen_reserve_tag();
+            label3 = qgen_reserve_tag();
+
+            shift();
+
+            // before the condition computation
+            qgen_write_reserved_tag(label1);
+            if(bexp(true) == PARSE_ERR) // check for the condition
+                return PARSE_ERR;
+            // if condition met, jump to the block
+            qgen_jmp(label2);
+            // else, jump to the end
+            qgen_jmp(label3);
+
+            // already shifted in bexp()
+
+            if(next.code != '{') {
+                error("code: conditional statements must be surrounded by curly brackets");
+                return PARSE_ERR;
+            }
+
+            // beginning of the block
+            qgen_write_reserved_tag(label2);
+
+            shift();
+
+            if(code() == PARSE_ERR) // consumes the closing '}'
+                return PARSE_ERR;
+
+            // jump to the condition computation
+            qgen_jmp(label1);
+            // end of the block (previous jump is included in the block)
+            qgen_write_reserved_tag(label3);
+
+            // already shifted in code()
+
+            break;
+        case PRINT:
+
+            verbose("code: print");
+            shift();
+
+            if(next.code != '(') {
+                error("code: expected '(', got %s",next.text);
+                return PARSE_ERR;
+            }
+
+            shift();
+
+            while(next.code != ')') {
+
+                // TODO: qgen - print tokens
+
+                shift();
+
+            }
+            verbose("code: sending %i parameters to print", param_count);
+
+            // TODO: qgen - print
+
+            shift(); // done with this statement
+            break;
+        case RET:
+            /* several things here:
+             * -check for parameter, and for type correctness *
+             * -also, throw error if func is not VOID and no  *
+             *  parameters are found                          *
+             * -check for '}': ret is final to a code block   *
+             *    -if not found, print error and iterate      *
+             *    through tokens until one is found (doing    *
+             *    nothing with them) and see what happens     */
+            int parsed_ret;
+
+            if(return_type == VOID) {
+                shift();
+
+                if(next.code != '}') {
+                    error("code: returning something in a void function!");
+                    return PARSE_ERR;
+                }
+
+                // TODO: qgen - return
+                //qgen("\tR0=0;\t// no return");
+                //qgen("\tGT(R6);// go up the caller");
+
+                return PARSE_OK;
+            } else {
+                shift();
+
+                /* expression */
+                if(next.code == STR) {
+                    if(return_type != STRING) {
+                        error("code: return type is not string!");
+                        return PARSE_ERR;
+                    }
+                }
+                else if((parsed_ret = expression()) == PARSE_ERR) {
+                    return PARSE_ERR;
+                } else if(parsed_ret != return_type) {
+                    error("code: expression returns type %i, when function returns type %i",
+                            parsed_ret,return_type);
+                    return PARSE_ERR;
+                }
+                verbose("code: returning an expression!");
+
+                // TODO: qgen - return something
+
+                if(next.code != '}') {
+                    error("code: return statement must be at the end of block");
+                    return PARSE_ERR;
+                }
+
+                shift();
+
+                return PARSE_OK;
+            }
+        case EXIT:
+
+            shift();
+
+            if(next.code != '}') {
+                error("code: exit statement must be at the end of block");
+                return PARSE_ERR;
+            }
+
+            qgen("\tR0=0;\t// no return");
+            qgen("\tGT(-2);\t// exit");
+
+            return PARSE_OK;
+        default: /* check for variable declarations, and if not, well, wtf */
+            if(!is_type(next.code)) {
+                error("code: unexpected token %s (code %i)",
+                        next.text,next.code);
+                return PARSE_ERR;
+            }
+            /* it's a type keyword, so we expect a declaration */
+            if(declaration() == PARSE_ERR)
+                return PARSE_ERR;
+
+            // already shifted in declaration()
         }
     }
+
+    verbose("code: block (presumably) correctly parsed");
+
+    shift();
+
     return PARSE_OK;
 }
 
@@ -826,292 +885,305 @@ int code(int ret) {
  * Previous token: several
  * Description: parses an expression and
  * computes return type
- * Args: 
- *   - *ret_type: stores the return type
- *   of the expression
- * Lookahead: 1
  * Eq. rule:
  *      *check the grammar file
+ * Return: type
  */
-int nexp(int prev, int *ret_type) {
+int nexp() {
     //TODO: compute return type in the integers case (well shitttt)
-    int func_or_var, type, operand_type;
+    int func_or_var, type = 0, operand_type_1, operand_type_2, opertor;
     int reg1, reg2;
     unsigned int address;
     SymbolRegister *reg = NULL;
 
-    verbose("nexp: token %s", yytext);
+    verbose("nexp: starts with '%s'",next.text);
 
-    switch(prev) {
-        case INT_N:
-            verbose("nexp: it's an integer number");
-            *ret_type = INT;
-            // Rx = dval
-            reg1 = get_32_reg();
-            qgen_get_int_val(yylval.dval,reg1);
-            return PARSE_OK;
-        case FLO_N:
-            verbose("nexp: it's a floating point number");
-            *ret_type = FLOAT;
-            // Rx = fval
-            reg1 = get_64_reg();
-            qgen_get_flo_val(yylval.fval,reg1);
-            return PARSE_OK;
-            /* explanation: returns OK so that the parser
-             * will complain at the next error, if any    */
-        case ID:
-            if(!find_in_table(yylval.sval,reg,&func_or_var,&type,&address)) { /* not even in the table */
-                error("nexp: %s was not declared",
-                        yylval.sval);
-                return PARSE_ERR;
-            } else  {
-                char *name = strdup(yylval.sval);
-                *ret_type = type;
-                if(func_or_var == VAR_T) {  /* var/arg? */
-                    if(type == INT ||
-                            type == UINT ||
-                            type == CHAR) {
-                        qgen_get_var(type,address);
-                    }
-                    else if(type == FLOAT) {
-                        qgen_get_var(type,address);
-                    }
-                    return PARSE_OK;
-                } else if(func_or_var == ARG_T) {
-                    //TODO:
-                    return PARSE_OK;
-                } else { /* found a function */
+    switch(next.code) {
+    case INT_N:
+        // Rx = dval
+        reg1 = get_32_reg();
+        qgen_get_int_val(next.lexed.dval,reg1);
 
-                    /* check the call */
-                    if(call() == PARSE_ERR)
-                        return PARSE_ERR;
+        shift();
+        verbose("nexp: returning %i",INT);
+        return INT;
+    case FLO_N:
+        // Rx = fval
+        reg1 = get_64_reg();
+        qgen_get_flo_val(yylval.fval,reg1);
 
-                    free(name);
-                    return PARSE_OK;
-                }
-            }
-        case '*':
-        case '/':
-        case '%':
-        case '-':
-        case '+':
-            // NO look ahead for twin
-            // sorry, but I just can't afford that added complexity
-
-            // parse two expressions
-            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                error("nexp: unable to parse a first expression after '%c'",prev);
-                return PARSE_ERR;
-            }
-            reg1 = result_reg(operand_type);
-            verbose("nexp: first operand of '%c' parsed",prev);
-            *ret_type = operand_type; // type is constrained to the first operand type
-            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                error("nexp: unable to parse a second expression after '%c'",prev);
-                return PARSE_ERR;
-            }
-            if(operand_type != *ret_type) {
-                verbose("nexp: the types of the two operands are not the same!: %i and %i",
-                        operand_type,*ret_type);
-            }
-            reg2 = result_reg(*ret_type);
-            qgen_bi_op(prev,operand_type,reg1,reg2);
-            verbose("nexp: second operand of '%c' parsed",prev);
-            return PARSE_OK;
-        default:
-            /* very ugly solution to use the default case, but  *
-             * it allows for a more decent error message        */
-            error("nexp: unexpected token %s; expected operator",yytext);
+        shift();
+        verbose("nexp: returning %i",FLOAT);
+        return FLOAT;
+    case ID:
+        if(!find_in_table(next.text,reg,&func_or_var,&type,&address)) { // not even in the table
+            error("nexp: %s was not declared",
+                    next.text);
             return PARSE_ERR;
+        } else {
+            char *name = strdup(next.text);
+            if(func_or_var == VAR_T || func_or_var == ARG_T) {  // var/arg?
+                // TODO: qgen - get var / arg value
+
+                shift();
+
+                verbose("nexp: returning %i",type);
+                return type;
+            } else { // found a function
+
+                // check the call
+                if(call() == PARSE_ERR) {
+                    free(name);
+                    return PARSE_ERR;
+                }
+
+                // already shifted in call()
+
+                free(name);
+                verbose("nexp: returning %i",type);
+                return type;
+            }
+        }
+    case '*':
+    case '/':
+    case '%':
+    case '-':
+    case '+':
+        // NO look ahead for twin
+        // just can't afford the added complexity
+
+        // get previous operand
+        opertor = next.code;
+        shift();
+
+        // parse two expressions
+        if((operand_type_1 = nexp()) == PARSE_ERR) {
+            error("nexp: unable to parse a first expression after '%c'",opertor);
+            return PARSE_ERR;
+        }
+        reg1 = result_reg(operand_type_1);
+        if((operand_type_2 = nexp()) == PARSE_ERR) {
+            error("nexp: unable to parse a second expression after '%c'",opertor);
+            return PARSE_ERR;
+        }
+        if(operand_type_1 != operand_type_2) {
+            verbose("nexp: the types of the two operands are not the same!: %i and %i",
+                    operand_type_1,operand_type_2);
+        }
+        reg2 = result_reg(operand_type_2);
+        qgen_bi_op(opertor,operand_type_1,reg1,reg2);
+        verbose("nexp: returning %i",operand_type_1);
+        return operand_type_1;
+    default:
+        /* very ugly solution to use the default case, but  *
+         * it allows for a more decent error message        */
+        error("nexp: unexpected token %s; expected operator",next.text);
+        return PARSE_ERR;
     }
     return PARSE_ERR;
 }
 
 /*
- * Previous token: ?
- * Description: parses an expression and
- * computes return type
- * Args: 
- *   - *ret_type: stores the return type
- *   of the expression
- * Lookahead: ?
+ * Previous token: several
+ * Description: parses a logic expression
  * Eq. rule:
  *      *check the grammar file
  */
-int bexp(int prev, bool first_call) {
+int bexp(bool first_call) {
     SymbolRegister *reg = NULL;
-    int func_or_var, type, operand_type, peek;
+    int func_or_var, type, operand_type_1, operand_type_2, oper;
     int reg1, reg2;
-    switch(prev) {
-        case TRUE:
-        case FALSE:
-            // save either 1 or 0 to a reg
-            reg1 = get_32_reg();
-            qgen_get_int_val(yylval.bval,reg1);
+    bool or_equal = false;
 
-            // if this is the first time, we know (because we parse
-            // operators beforehand) that this is a lonely shin/nise
-            if(first_call)
-                qgen("\tIF(R%d)",result_reg(BOOL));
-            
-            return PARSE_OK;
-        case ID: /* it must be a call then: there are no */
-            /* boolean variables in the language    */
-            if(!find_in_table(yylval.sval,reg,&func_or_var,&type)) { /* not even in the table */
-                error("nexp: %s was not declared",
-                        yylval.sval);
-                return PARSE_ERR;
-            } else if(func_or_var == VAR_T || func_or_var == ARG_T) { /* var/arg? either way, no such thing is allowed */
-                return PARSE_ERR;
-            } else if(func_or_var == FUNC_T) { /* found a function */
+    switch(next.code) {
+    case TRUE:
+    case FALSE:
+        // save either 1 or 0 to a reg
+        reg1 = get_32_reg();
+        qgen_get_int_val(next.lexed.bval,reg1);
 
-                /* check the call */
-                if(call() == PARSE_ERR)
-                    return PARSE_ERR;
-            }
+        // if this is the first time, we know (because we parse
+        // operators beforehand) that this is a lonely shin/nise
+        if(first_call)
+            qgen("\tIF(R%d)",result_reg(BOOL));
 
-            // thorugh here means correct call parsing,
-            // and that means that result must be in R0
-            // TODO: revisit this thought
-            if(first_call)
-                qgen("\tIF(R%d)",result_reg(BOOL));
+        shift();
 
-            return PARSE_OK;
-
-        case '!':
-            peek = yylex();
-            if(bexp(peek,false) == PARSE_ERR) {
-                error("bexp: unable to parse logical expression after '!'");
-                return PARSE_ERR;
-            }
-            
-            reg2 = result_reg(BOOL);
-            reg1 = get_32_reg();
-            qgen("\tR%d = ! R%d;",reg1,reg2);
-
-            if(first_call)
-                qgen("\tIF(R%d)",reg1);
-
-            return PARSE_OK;
-            /* the easy ones (they only apply to boolean expressions)*/
-        case '&':
-        case '|':
-            // parse 2 b expressions
-            peek = yylex();
-            if(bexp(peek,false) == PARSE_ERR) {
-                error("bexp: unable to parse first operand of logical '%c'",prev);
-                return PARSE_ERR;
-            }
-            reg1 = result_reg(BOOL);
-            if(bexp(yylex(),false) == PARSE_ERR) {
-                error("bexp: unable to parse second operand of logical '%c'",prev);
-                return PARSE_ERR;
-            }
-            reg2 = result_reg(BOOL);
-            qgen("\tR%d = R%d %c%c R%d;",
-                    reg1,reg1,prev,prev,reg2); // let's be smart with the regs
-            free_32_reg(reg2);
-
-            if(first_call) { // meaning this & / | is the root operator
-                qgen("\tIF(R%d)",reg1);
-                free_32_reg(reg1);
-            } 
-            return PARSE_OK;
-        case '=':
-            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                error("bexp: unable to parse first operand of comparison");
-                return PARSE_ERR;
-            }
-            reg1 = result_reg(operand_type);
-            verbose("bexp: first operand of comparison parsed");
-            type = operand_type;
-            if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                error("bexp: unable to parse second operand of comparison");
-                return PARSE_ERR;
-            }
-            reg2 = result_reg(operand_type);
-            verbose("bexp: first operand of comparison parsed");
-            if(operand_type != type) {
-                verbose("bexp: comparison operands do not match in type: %i and %i",
-                        type, operand_type);
-            }
-            if(operand_type == STR || type == STR) {
-                error("bexp: operations involving strings are not allowed");
-                return PARSE_ERR;
-            }
-            qgen_log_comp_op(prev,operand_type,reg1,reg2);
-            if(first_call) {
-                qgen("\tIF(R%d)",reg1);
-                free_32_reg(reg1);
-            }
-            return PARSE_OK;
-        case '>':
-        case '<':
-            // check for '='
-            peek = yylex();
-            if(peek == '=') {
-                verbose("bexp: '%c%c'",prev,peek);
-                peek = yylex();
-                if(nexp(peek,&operand_type) == PARSE_ERR) {
-                    error("bexp: unable to parse first operand of comparison");
-                    return PARSE_ERR;
-                }
-                verbose("bexp: first operand of comparison parsed");
-                reg1 = result_reg(operand_type);
-                type = operand_type;
-                if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                    error("bexp: unable to parse second operand of comparison");
-                    return PARSE_ERR;
-                }
-                if(operand_type != type) {
-                    verbose("bexp: comparison operands do not match in type: %i and %i",
-                            type, operand_type);
-                }
-                if(operand_type == STR || type == STR) {
-                    error("bexp: operations involving strings are not allowed");
-                    return PARSE_ERR;
-                }
-                reg2 = result_reg(operand_type);
-                qgen_log_comp_op((prev == '>')?';':':', // different encoding
-                        operand_type,reg1,reg2);
-                if(first_call) {
-                    qgen("\tIF(R%d)",reg1);
-                    free_32_reg(reg1);
-                }
-                verbose("bexp: second operand of comparison parsed");
-                return PARSE_OK;
-            } else {
-                verbose("bexp: '%c'",prev);
-                if(nexp(peek,&operand_type) == PARSE_ERR) {
-                    error("bexp: unable to parse first operand of comparison");
-                    return PARSE_ERR;
-                }
-                verbose("bexp: first operand of comparison parsed");
-                reg1 = result_reg(operand_type);
-                type = operand_type;
-                if(nexp(yylex(),&operand_type) == PARSE_ERR) {
-                    error("bexp: unable to parse second operand of comparison");
-                    return PARSE_ERR;
-                }
-                verbose("bexp: second operand of comparison parsed");
-                if(operand_type != type) {
-                    verbose("bexp: comparison operands do not match in type: %i and %i",
-                            type, operand_type);
-                }
-                if(operand_type == STR || type == STR) {
-                    error("bexp: operations involving strings are not allowed");
-                    return PARSE_ERR;
-                }
-                reg2 = result_reg(operand_type);
-                qgen_log_comp_op(prev,operand_type,reg1,reg2);
-                if(first_call) {
-                    qgen("\tIF(R%d)",reg1);
-                    free_32_reg(reg1);
-                }
-                verbose("bexp: second operand of comparison parsed");
-                return PARSE_OK;
-            }
+        return BOOL;
+    case ID:
+        // it must be a call then: there are no
+        // boolean variables in the language
+        if(!find_in_table(next.text,reg,&func_or_var,&type)) { /* not even in the table */
+            error("nexp: %s was not declared",
+                    next.text);
             return PARSE_ERR;
+        } else if(func_or_var == VAR_T || func_or_var == ARG_T) { /* var/arg? either way, no such thing is allowed */
+            error("bexp: (this shouldn't have happened) vars or arguments of type boolean are not allowed");
+            return PARSE_ERR;
+        } else if(func_or_var == FUNC_T) { /* found a function */
+
+            /* check the call */
+            if(call() == PARSE_ERR)
+                return PARSE_ERR;
+        }
+
+        // thorugh here means correct call parsing,
+        // and that means that result must be in R0
+        // TODO: revisit this thought
+        if(first_call)
+            qgen("\tIF(R%d)",result_reg(BOOL));
+
+        // already shifted in call()
+
+        return BOOL;
+
+    case '!':
+
+        shift();
+
+        if(bexp(false) == PARSE_ERR) {
+            error("bexp: unable to parse logical expression after '!'");
+            return PARSE_ERR;
+        }
+
+        reg2 = result_reg(BOOL);
+        reg1 = get_32_reg();
+        qgen("\tR%d = ! R%d;",reg1,reg2);
+
+        if(first_call)
+            qgen("\tIF(R%d)",reg1);
+
+        // already shifted in bexp()
+
+        return BOOL;
+    case '&':
+    case '|':
+        // parse 2 b expressions
+
+        oper = next.code;
+        shift();
+
+        if(bexp(false) == PARSE_ERR) {
+            error("bexp: unable to parse first operand of logical '%c'",oper);
+            return PARSE_ERR;
+        }
+        reg1 = result_reg(BOOL);
+
+        // already shifted in bexp()
+
+        if(bexp(false) == PARSE_ERR) {
+            error("bexp: unable to parse second operand of logical '%c'",oper);
+            return PARSE_ERR;
+        }
+        reg2 = result_reg(BOOL);
+
+        qgen("\tR%d = R%d %c%c R%d;",
+                reg1,reg1,oper,oper,reg2); // let's be smart with the regs
+        free_32_reg(reg2);
+
+        if(first_call) { // meaning this & / | is the root operator
+            qgen("\tIF(R%d)",reg1);
+            free_32_reg(reg1);
+        } 
+
+        // already shifted in bexp()
+
+        return BOOL;
+    case '=':
+
+        oper = next.code;
+        shift();
+
+        if((operand_type_1 = nexp()) == PARSE_ERR) {
+            error("bexp: unable to parse first operand of comparison");
+            return PARSE_ERR;
+        }
+        reg1 = result_reg(operand_type_1);
+
+        // already shifted in nexp()
+
+        if((operand_type_2 = nexp()) == PARSE_ERR) {
+            error("bexp: unable to parse second operand of comparison");
+            return PARSE_ERR;
+        }
+        reg2 = result_reg(operand_type_2);
+
+        if(operand_type_1 != operand_type_2) {
+            verbose("bexp: comparison operands do not match in type: %i and %i",
+                    operand_type_1, operand_type_2);
+        }
+        if(operand_type_1 == STR || operand_type_2 == STR) {
+            error("bexp: operations involving strings are not allowed");
+            return PARSE_ERR;
+        }
+
+        qgen_log_comp_op(oper,operand_type_1,reg1,reg2);
+        if(first_call) {
+            qgen("\tIF(R%d)",reg1);
+            free_32_reg(reg1);
+        }
+
+        //already shifted in nexp()
+
+        return BOOL;
+    case '>':
+    case '<':
+        // check for '='
+
+        oper = next.code;
+        shift();
+
+        if(next.code == '=') {
+            shift();
+            or_equal = true;
+        }
+
+        if((operand_type_1 = nexp()) == PARSE_ERR) {
+            error("bexp: unable to parse first operand of comparison");
+            return PARSE_ERR;
+        }
+        reg1 = result_reg(operand_type_1);
+        verbose("bexp: first expression of the comparison parsed \
+                (type = %i)",operand_type_1);
+
+        if((operand_type_2 = nexp()) == PARSE_ERR) {
+            error("bexp: unable to parse second operand of comparison");
+            return PARSE_ERR;
+        }
+        if(operand_type_1 != operand_type_2) {
+            verbose("bexp: comparison operands do not match in type: %i and %i",
+                    operand_type_1, operand_type_2);
+        }
+        if(operand_type_1 == STR || operand_type_2 == STR) {
+            error("bexp: operations involving strings are not allowed");
+            return PARSE_ERR;
+        }
+        reg2 = result_reg(operand_type_2);
+        verbose("bexp: second expression of the comparison parsed\
+                (type = %i)",operand_type_1);
+        verbose("bexp: successfully parsed comparison operation");
+
+        if(or_equal)
+            qgen_log_comp_op((oper == '>')?';':':', // different encoding
+                    operand_type_1,reg1,reg2);
+        else
+            qgen_log_comp_op(oper,operand_type_1,reg1,reg2);
+
+        if(first_call) {
+            if(operand_type_1 == FLOAT) {
+                qgen("\tIF(RR%d)",reg1);
+                free_64_reg(reg1);
+            }
+            else {
+                qgen("\tIF(R%d)",reg1);
+                free_32_reg(reg1);
+            }
+        }
+
+        // already shifted in nexp()
+
+        return BOOL;
+    default:;
     }
     return PARSE_ERR;
 }
@@ -1119,26 +1191,26 @@ int bexp(int prev, bool first_call) {
 /*
  * Previous token: {type}
  * Description: fairly trivial
- * Args:
- *   - prev: the argument type
- * Lookahead: 1
  * Eq. rule:
  *      {type} ':' ID
  */
-int argument(int prev) {
-    /* lex has been called already! */
-    int type = prev;
+int argument() {
 
-    if(expect(':') == PARSE_ERR) {
-        error("expected ':', got %s",yytext);
+    int type = next.code;
+    shift();
+
+    if(next.code != ':') {
+        error("argument: expected ':', got %s",next.text);
         return PARSE_ERR;
     }
 
-    if(expect(ID) == PARSE_ERR) {
-        error("expected identifier, got %s",yytext);
+    shift();
+
+    if(next.code != ID) {
+        error("argument: expected identifier, got %s",next.text);
         return PARSE_ERR;
     }
-    char *name = strdup(yylval.sval);
+    char *name = strdup(next.text);
 
     try {
         table->store_symbol(ARG_T,type,local_num_args,name);
@@ -1149,19 +1221,19 @@ int argument(int prev) {
     free(name);
 
     // no codegen here: just syntactic info
+
+    shift();
+
     return PARSE_OK;
 }
 
 /*
- * Previous token: ID|tsutaeru (already verified as function)
+ * Previous token: ID|tsutaeru
  * Description: checks for passed params and checks
  * each param's type against correspondant function
  * argument
- * Args: none
- * Lookahead: 1
  * Eq. rule:
  *      [ID] '(' parameter* ')'
- * Special return: function return type (rly? better just int*)
  */
 int call() {
 
@@ -1179,10 +1251,10 @@ int call() {
     char *fname;
 
     SymbolRegister *arg;
-    SymbolRegister *func = table->get_symbol(yylval.sval);
+    SymbolRegister *func = table->get_symbol(next.text);
     if(!func)
         return PARSE_ERR; // we should never get here, but better safe than sorry
-    fname = strdup(func->get_name());
+    fname = strdup(next.text);
     numargs = func->get_info();
     param_types = (int*)malloc(sizeof(int)*numargs);
     arg = func;
@@ -1195,24 +1267,30 @@ int call() {
     pushed_32 = qgen_push_32_regs();
     pushed_64 = qgen_push_64_regs();
 
-    if(expect('(') == PARSE_ERR)
-        return PARSE_ERR;
+    shift();
 
-    int param_count = 0, of_type, next;
-    next = yylex();
-    while(next != ')') {
-        /* just let the parameter() function take 
-         * care of it, then check param type */
-        if(parameter(next,&of_type) == PARSE_ERR)
+    if(next.code != '(') {
+        error("argument: expected '(', got %s",next.text);
+        return PARSE_ERR;
+    }
+
+    int param_count = 0, of_type;
+
+    shift();
+
+    while(next.code != ')') {
+        if((of_type = parameter()) == PARSE_ERR)
             return PARSE_ERR;
-        verbose("call: parsed a %i type parameter",of_type);
+
+        verbose("call: parameter %i is of type %i",
+                param_count,of_type);
         if(param_types[param_count] != of_type) {
             error("call: parameter %i is of type %i when %s expects %i",
                     param_count,of_type,fname,param_types[param_count]);
             return PARSE_ERR;
         }
         qgen_push_param(of_type,param_count++);
-        next = yylex();
+        // already shifted in parameter()
     }
 
     if(numargs != param_count) {
@@ -1220,6 +1298,8 @@ int call() {
                 param_count,func->get_name(),numargs);
         return PARSE_ERR;
     }
+
+    verbose("call: parsed %i parameters",param_count);
 
     // save return address, goto label and then label said address
     label = qgen_reserve_tag();
@@ -1229,40 +1309,42 @@ int call() {
     qgen_jmp(fname);
 
     // return label
-    qgen("L %d:",label);
+    qgen("L %d:\t\t//return address",label);
     // first thing to do is retrieve regs
     qgen_pop_32_regs(pushed_32);
     qgen_pop_64_regs(pushed_64);
     // second thing is pop result
     qgen_pop_result(func->get_return());
 
+    // the loop ends with next being ')', so go ahead
+    shift();
+
     free(fname);
     return PARSE_OK;
 }
 
 /*
- * Previous token: '(' (no need to use it)
+ * Previous token: ID|first_of(nexp)
  * Description: very simple match, using the
  * same distinguish logic between b and n exp
- * Args:
- *  - *type : use to store the type of the param
- * Lookahead: 1
  * Eq. rule:
- *      STR | nexp | bexp
+ *      STR | nexp
  */
-int parameter(int prev, int *type) {
+int parameter() {
     /* note: this block is actually significant to the 
      * language spec, since we are basically saying that
      * no operations can be performed on string literals,
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
-    unsigned int address;
-    if(prev == STR) {
-        *type = STR;
-        address = qgen_str(yylval.sval);
+    if(next.code == STR) {
+        unsigned int address = qgen_str(next.text);
         qgen("\tR%d = 0x%x;",get_32_reg(),address);
-        return PARSE_OK;
+        return STRING;
     } 
-    return expression(prev,type);
+    /* note: this one is also such a block. it states that
+     * a param can only be one that matches a nexp; that is,
+     * either a numeric literal, a numeric expression or a
+     * numeric type variable */
+    return nexp();
 }
 

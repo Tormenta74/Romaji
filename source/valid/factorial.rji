@@ -24,7 +24,7 @@ omo:seisu
 {
     seisu n
     tsutaeru("Introduce a number (integer, please)")
-    #n <- uketoru   # scan functionality not yet implemented
+    n <- uketoru   # scan functionality not yet implemented
     n <- 9
     seisu f <- factorial (n)
     tsutaeru(n "'s factorial is " f)
