@@ -5,10 +5,13 @@ invalid="source/invalid"
 key=
 verbose=0
 compiled=0
+count=0
 
 if [ $1 == "-v" ]; then
     verbose=1
 fi
+
+make clean_compiled && make
 
 for i in $(ls $valid); do
     echo "\$ ./rjicomp $valid/$i"
@@ -28,9 +31,11 @@ for i in $(ls $valid); do
             echo -e "\033[0;31mbad\033[0m"
         fi
     fi
+    let "count++"
 done
 
 echo -e "\$ ./cleanup.sh"
 ./cleanup.sh
 
-echo -e "\033[0;32m$compiled\033[0m out of 12 compiled"
+echo -e "\033[0;32m$compiled\033[0m out of $count compiled"
+echo -e "Call this script with option '-v' to see the compiler output."

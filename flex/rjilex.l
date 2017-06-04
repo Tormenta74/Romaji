@@ -32,54 +32,54 @@ arrow           "<-"
  /* keywords */
 
  /** type **/
-"seisu"         { l_error(yytext,' ');return INT;    }
-"nashi seisu"   { l_error(yytext,' ');return UINT;   }
-"baito"         { l_error(yytext,' ');return CHAR;   }
-"mojiretsu"     { l_error(yytext,' ');return STRING; }
-"furotingu"     { l_error(yytext,' ');return FLOAT;  }
-"shinri"        { l_error(yytext,' ');return BOOL;   }
-"kyo"           { l_error(yytext,' ');return VOID;   }
+"seisu"         { return INT;    }
+"nashi seisu"   { return UINT;   }
+"baito"         { return CHAR;   }
+"mojiretsu"     { return STRING; }
+"furotingu"     { return FLOAT;  }
+"shinri"        { return BOOL;   }
+"kyo"           { return VOID;   }
 
  /** control **/
-"naka"      {l_error(yytext,' ');return WHILE;  }
-"to"        {l_error(yytext,' ');return IF;     }
-"ta"        {l_error(yytext,' ');return ELSE;   }
+"naka"      {return WHILE;  }
+"to"        {return IF;     }
+"ta"        {return ELSE;   }
 
  /** structure **/
-"kansu"     {l_error(yytext,' ');return FUNC;   }
-"kisu"      {l_error(yytext,' ');return RET;    }
-"omo"       {l_error(yytext,' ');return MAIN;   }
-"shi"       {l_error(yytext,' ');return EXIT;   }
+"kansu"     {return FUNC;   }
+"kisu"      {return RET;    }
+"omo"       {return MAIN;   }
+"shi"       {return EXIT;   }
 
  /** I/O **/
-"tsutaeru"  {l_error(yytext,' ');return PRINT;    }
-"uketoru"   {l_error(yytext,' ');return SCAN;     }
+"tsutaeru"  {return PRINT;    }
+"uketoru"   {return SCAN;     }
 
  /** special values **/
-"shin"      {yylval.bval = 1;l_error(yytext,' ');return TRUE;}
-"nise"      {yylval.bval = 0;l_error(yytext,' ');return FALSE;}
+"shin"      {yylval.bval = 1;return TRUE;}
+"nise"      {yylval.bval = 0;return FALSE;}
 
  /** assignment **/
-{arrow}     {l_error(yytext,' ');return ARROW;  }
+{arrow}     {return ARROW;  }
               
-[-+*/%=&|!<>{}()\[\]:]   {l_error(yytext,' ');return *yytext;}
+[-+*/%=&|!<>{}()\[\]:]   {return *yytext;}
 
 {letter}{letterdigit}*  {
         yylval.sval = strdup(yytext);
-        l_error(yytext,' ');
-        return ID;}
+        return ID;
+    }
 ("-")?{digit}+  {
         yylval.dval = atoi(yytext);
-        l_error(yytext,' ');
-        return INT_N;}
+        return INT_N;
+    }
 (("-")?{digit})?+("."){digit}+  {
         yylval.fval = atof(yytext);
-        l_error(yytext,' ');
-        return FLO_N;}
+        return FLO_N;
+    }
 \"(\\.|[^\\"])*\"   {
         yylval.sval = strdup(yytext);
-        l_error(yytext,' ');
-        return STR;}
+        return STR;
+    }
 
 .   {l_error("unrecognized character", *yytext);}
 

@@ -1,0 +1,1 @@
+kansu fibo:seisu <- seisu:n { to < n 2 { kisu n } kisu + fibo(- n 1) fibo(- n 2) } omo:kyo { seisu index <- 0 seisu result naka < index 10 { result <- fibo(index) ++ index } shi }

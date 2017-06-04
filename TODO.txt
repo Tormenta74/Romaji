@@ -1,14 +1,4 @@
 
-lexer:
-    - definir la lista de expresiones regulares
-    - buscar matches de la entrada
-        ? cargar todo el fichero y recorrerlo caracter a caracter
-        ? algoritmo de matching *
+    stack:
+        - structure of stack use
 
-parser:
-    ? una función por cada lhs
-    ? el código de la función llama a los correspondientes de otros
-      lhs y al lexer para cuando tenga que percibirse un símbolo terminal
-      (token).
-    - en cada función se llama a generación de código de forma que se crea
-      el código de los subárboles una vez procesados (depth first)

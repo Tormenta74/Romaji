@@ -466,8 +466,7 @@ void qgen_log_comp_op(int oper, int type, int reg1, int reg2) {
 }
 
 void qgen_un_op(int plus_or_minus, int type, unsigned int addr) {
-    qgen("\t%s(0x%x) = %s(0x%x) %c 1;",
-            type_access(type),addr,
+    qgen("\t%s(0x%x) %c= 1;",
             type_access(type),addr,plus_or_minus);
 }
 
