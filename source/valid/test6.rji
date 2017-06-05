@@ -7,18 +7,16 @@
 # a demonstration of the use of all of the operators
 omo:kyo
 {
+    mojiretsu s[] <- "a string variable"
     seisu a <- 12
-    tsutaeru ( + a 2 ) # prints 14
-    tsutaeru ( - a 2 ) # prints 10
-    tsutaeru ( * a 0 ) # prints 0
-    tsutaeru ( / a 2 ) # prints 6
-    tsutaeru ( % a 3 ) # prints 0
-    tsutaeru ( = a 2 ) # prints nise
-    tsutaeru ( > a 2 ) # prints shin
-    tsutaeru ( < a 2 ) # prints nise
-    tsutaeru ( >= a 2 ) # prints shin
-    tsutaeru ( <= a 2 ) # prints nise
-    tsutaeru ( | shin nise ) # prints shin
-    tsutaeru ( & shin nise ) # prints nise
+    a<- + a 2  tsutaeru (a) # prints 14
+    a<- - a 2  tsutaeru (a) # prints 10
+    a<- * a 0  tsutaeru (a) # prints 0
+    a<- / a 2  tsutaeru (a) # prints 6
+    a<- % a 3  tsutaeru (a) # prints 0
+    tsutaeru (shin) # prints shin
+    tsutaeru (nise) # prints nise
+    tsutaeru(s)
+    tsutaeru("a string literal")
     shi
 }
