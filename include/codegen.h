@@ -43,7 +43,7 @@ void qgen_pop_32_regs(int *array);
 void qgen_pop_64_regs(int *array);
 
 // push params to the stack
-void qgen_push_param(int type, int offset);
+void qgen_push_param(int type, int arg_or_var, unsigned int addr, int scope);
 
 void qgen_push_result(int type);
 void qgen_pop_result(int type, int *unavailable);
@@ -52,7 +52,6 @@ void qgen_pop_result(int type, int *unavailable);
 /**                 I/O                   **/
 /** ------------------------------------- **/
 void qgen_scan(int type, unsigned int addr);
-void qgen_print(unsigned int addr);
 unsigned int qgen_str_stat(char *string);
 
 /** ------------------------------------- **/

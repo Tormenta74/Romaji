@@ -1,16 +1,28 @@
-seisu global1
-
-kansu f:seisu <-
-    seisu:a
-{
-    #++ a
+kansu i:seisu <- seisu:a {
+    ++ a
     kisu a
 }
 
-seisu global2
+kansu h:seisu <- seisu:a {
+    a <- i(a)
+    kisu a
+}
+
+kansu g:seisu <- seisu:a {
+    a <- h(a)
+    kisu a
+}
+
+kansu f:seisu <- seisu:a {
+    a <- g(a)
+    kisu a
+}
 
 omo:kyo {
     seisu a <- + 2 3
+    tsutaeru(a)
     f(a)
-    ++ a
+    ++a
+    tsutaeru(a)
+    shi
 }

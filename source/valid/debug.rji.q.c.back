@@ -1,0 +1,154 @@
+#include "Q.h"
+BEGIN
+STAT(0)
+	STR(0x11ffb,"%li");
+CODE(0)
+STAT(1)
+	STR(0x11ff7,"%c");
+CODE(1)
+L 1:	// kansu i
+	R0 = I(R6+0);
+	R0 = ++R0;
+	I(R6+0) = R0;
+	R0 = U(R6+0);
+	R0 = I(R0);
+	R0 = I(R6);
+	R0 = R0 + 12;
+	I(R6+R0) = R0;
+	R7 = R6;
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R6 + 4;
+	R6 = I(R7);
+	GT(R6);
+L 2:	// kansu h
+	R7 = R7 - 8;
+	R7 = R7 - 4;
+	P(R7) = R6;
+	R7 = R7 - 4;
+	P(R7) = 3;
+	R7 = R7 - 4;
+	R1 = P(R6+0);
+	P(R7) = R1;
+	I(R7) = 4;
+	R6 = R7;
+	GT(1);
+L 3:	
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R7 + 4;
+	R0 = I(R7);
+	R7 = R7 + 8;
+	I(R6+0) = R0;
+	R0 = U(R6+0);
+	R0 = I(R0);
+	R0 = I(R6);
+	R0 = R0 + 12;
+	I(R6+R0) = R0;
+	R7 = R6;
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R6 + 4;
+	R6 = I(R7);
+	GT(R6);
+L 4:	// kansu g
+	R7 = R7 - 8;
+	R7 = R7 - 4;
+	P(R7) = R6;
+	R7 = R7 - 4;
+	P(R7) = 5;
+	R7 = R7 - 4;
+	R1 = P(R6+0);
+	P(R7) = R1;
+	I(R7) = 4;
+	R6 = R7;
+	GT(2);
+L 5:	
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R7 + 4;
+	R0 = I(R7);
+	R7 = R7 + 8;
+	I(R6+0) = R0;
+	R0 = U(R6+0);
+	R0 = I(R0);
+	R0 = I(R6);
+	R0 = R0 + 12;
+	I(R6+R0) = R0;
+	R7 = R6;
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R6 + 4;
+	R6 = I(R7);
+	GT(R6);
+L 6:	// kansu f
+	R7 = R7 - 8;
+	R7 = R7 - 4;
+	P(R7) = R6;
+	R7 = R7 - 4;
+	P(R7) = 7;
+	R7 = R7 - 4;
+	R1 = P(R6+0);
+	P(R7) = R1;
+	I(R7) = 4;
+	R6 = R7;
+	GT(4);
+L 7:	
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R7 + 4;
+	R0 = I(R7);
+	R7 = R7 + 8;
+	I(R6+0) = R0;
+	R0 = U(R6+0);
+	R0 = I(R0);
+	R0 = I(R6);
+	R0 = R0 + 12;
+	I(R6+R0) = R0;
+	R7 = R6;
+	R7 = R7 + 4;
+	R6 = I(R7);
+	R7 = R6 + 4;
+	R6 = I(R7);
+	GT(R6);
+L 0:		        // entry point
+	R7 = R7 - 4;    //take stack for var a
+	R1 = 2;         //first operand
+	R2 = 3;         //second operand
+	R3 = R1 + R2;   //save operation
+	I(R6-4) = R3;   //write to mem address
+	R1 = I(R6-4);   //get var value
+	R2 = R1;        //set int param for printing
+	R1 = 0x11ffb;	//int fmt string
+	R0 = 8;		    //return label
+	GT(putf_);                                                           
+L 8:	                                                                 
+	R7 = R7 - 8;    //take stack for result             //
+	R7 = R7 - 4;    //take stack for context            //
+	P(R7) = R6;     //save current context              //
+	R7 = R7 - 4;    //take stack for return address     //
+	P(R7) = 9;      //save return address               //
+	R7 = R7 - 4;    //take stack for param              //
+	P(R7) = R6 - 4; //save var address                  // function call
+	I(R7) = 4;      //save # of args (x 4)              //
+	R6 = R7;        //set new context                   //
+	GT(6);          //jump to function location         //
+L 9:	                                                                 
+	R7 = R7 + 4;    //release stack of ret address      //
+	R6 = I(R7);     //retrieve context                  //
+	R7 = R7 + 4;    //release stack of context          //
+	R0 = I(R7);     //get result                        //
+	R7 = R7 + 8;    //release stack of result           //
+	R1 = I(R6-4);   //get value of var a
+	R1 = ++R1;      //increment value
+	I(R6-4) = R1;   //save new value in var a address
+	R1 = I(R6-4);   //get value of var a
+	R2 = R1;        //set int param for printing
+	R1 = 0x11ffb;	//int fmt string
+	R0 = 10;		//return label
+	GT(putf_);
+L 10:	
+	R0=0;	// no return
+	GT(-2);	// exit
+END
+
