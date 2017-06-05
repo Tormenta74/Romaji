@@ -1458,12 +1458,24 @@ int parameter() {
      * particular function extremely simple */
     if(next.code == STR) {
         unsigned int address = qgen_str_lit(next.text);
-        qgen("\tR%d = 0x%x;",get_32_reg(),address);
+        qgen("\tR%d = 0x%x;\t//this is not going to be used",get_32_reg(),address);
         return STRING;
     } 
 
-    // push params to the stack... but only identifiers
+    SymbolRegister *reg = NULL;
+    int func_or_var, type;
+    unsigned int addr;
 
+    // push params to the stack... but only identifiers
+    if(next.code == ID) {
+        if(!find_in_table(next.text,reg,&func_or_var,&type,&addr)) {
+            error("parameter: %s was not previously declared",next.text);
+            return PARSE_ERR;
+        } else if(func_or_var == VAR_T || func_or_var == ARG_T) {
+            // TODO: qgen - push param
+            qgen_push_param(type,func_or_var,addr,table->get_scope());
+        }
+    }
 
     /* note: this one is also such a block. it states that
      * a param can only be one that matches a nexp; that is,

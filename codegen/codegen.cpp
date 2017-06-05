@@ -321,10 +321,6 @@ void qgen_scan(int type, unsigned int addr) {
 
 }
 
-void qgen_print(unsigned int addr) {
-
-}
-
 //stack
 
 void qgen_release_stack(int n) {
@@ -437,15 +433,22 @@ void qgen_pop_result(int type, int *unavailable) {
     }
 }
 
-
-//TODO
-void qgen_push_param(int type, int offset) {
-    qgen_release_stack(8);
-    if(type == FLOAT) {
-        qgen("\tD(R7) = RR%d;",result_reg(type));
+void qgen_push_param(int type, int arg_or_var, unsigned int addr, int scope) {
+    int reg_addr;
+    qgen_take_stack(4);
+    if(scope == 0) {
+        qgen("\tP(R7) = 0x%x;",addr);           // push global address (easy)
     } else {
-        qgen("\t%s(R7) = RR%d;",
-                type_access(type),result_reg(type));
+        if(arg_or_var == VAR_T) {
+            qgen("\tP(R7) = R6 - %d;",addr);    // address is relative to current
+                                                // context
+        } else {
+            reg_addr = get_32_reg();
+            qgen("\tR%d = P(R6+%d);",           // fetch mem address
+                    reg_addr,addr);
+            qgen("\tP(R7) = R%d;",reg_addr);    // push fetched addr
+            free_32_reg(reg_addr);
+        }
     }
 }
 
@@ -498,10 +501,6 @@ void free_reg(int type, int reg) {
         free_64_reg(reg);
     else
         free_32_reg(reg);
-}
-
-// store variable value
-void qgen_get_var(int type, unsigned int addr) {
 }
 
 void qgen_get_vararg(int type, int arg_or_var, unsigned int addr, int scope) {
