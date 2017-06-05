@@ -441,7 +441,7 @@ void qgen_push_param(int type, int arg_or_var, unsigned int addr, int scope) {
     } else {
         if(arg_or_var == VAR_T) {
             qgen("\tP(R7) = R6 - %d;",addr);    // address is relative to current
-                                                // context
+            // context
         } else {
             reg_addr = get_32_reg();
             qgen("\tR%d = P(R6+%d);",           // fetch mem address
@@ -589,23 +589,42 @@ void qgen_log_comp_op(int oper, int type, int reg1, int reg2) {
 }
 
 void qgen_un_op(int plus_or_minus, int type, int arg_or_var, unsigned int addr, int scope) {
-    int reg_addr;
+    int reg = get_32_reg();
     if(scope == 0) {
-        qgen("\t%s(0x%x) %c%c;",
-                type_access(type),addr,plus_or_minus,plus_or_minus);
-    } else {
-        if(arg_or_var == VAR_T) {
-            qgen("\t%s(R6-%d) %c%c;",   // up/down 1 in stack
-                    type_access(type),addr,plus_or_minus,plus_or_minus);
+        if(type == FLOAT) {
+            free_32_reg(reg);
+            return;
         } else {
-            reg_addr = get_32_reg();
-            qgen("\tR%d = U(R6+%d);",  // get memory address
-                    reg_addr,addr);
-            qgen("\t%s(R%d) %c%c;",   // up/down 1 in memory
-                    type_access(type),reg_addr,plus_or_minus,plus_or_minus);
-            free_32_reg(reg_addr);
+            qgen("\tR%d = %s(0x%x);",
+                    reg,type_access(type),addr);
+            qgen("\tR%d = %c%cR%d;",
+                    reg,plus_or_minus,plus_or_minus,reg);
+            qgen("\t%s(0x%x) = R%d;",
+                    type_access(type),addr,reg);
+        }
+    } else {
+        if(type == FLOAT) {
+            free_32_reg(reg);
+            return;
+        } else {
+            if(arg_or_var == VAR_T) {
+                qgen("\tR%d = %s(R6-%d);",
+                        reg,type_access(type),addr);
+                qgen("\tR%d = %c%cR%d;",
+                        reg,plus_or_minus,plus_or_minus,reg);
+                qgen("\t%s(R6-%d) = R%d;",
+                        type_access(type),addr,reg);
+            } else {
+                qgen("\tR%d = %s(R6+%d);",
+                        reg,type_access(type),addr);
+                qgen("\tR%d = %c%cR%d;",
+                        reg,plus_or_minus,plus_or_minus,reg);
+                qgen("\t%s(R6+%d) = R%d;",
+                        type_access(type),addr,reg);
+            }
         }
     }
+    free_32_reg(reg);
 }
 
 void qgen_assign(int type, int arg_or_var, unsigned int address, int scope) {
