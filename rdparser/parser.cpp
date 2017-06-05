@@ -24,7 +24,7 @@ typedef struct {
     int code;
 } token;
 
-token prev, next;
+token next;
 
 extern YYSTYPE yylval;
 extern char *yytext;
@@ -57,6 +57,9 @@ int local_num_args = 0;
 // matter)
 int return_type = 0;
 
+unsigned int int_fmt_str_addr = 0;
+unsigned int char_fmt_str_addr = 0;
+
 /*==============================================*/
 /** ** **        HELPER FUNCTIONS        ** ** **/
 /*==============================================*/
@@ -81,16 +84,13 @@ void p_error(const char* msg) {
 void shift() {
     int code = yylex();     // invokes yylex
 
-    //if(prev.text)
-    //free(prev.text);
-    prev = next;            // saves previous token
     if(next.text)
         free(next.text);
     next.code = code;       // stores new info
     next.lexed = yylval;
     next.text = strdup(yytext);
 
-    verbose("shift: (%i,%s)",code,next.text);
+    //verbose("shift: (%i,%s)",code,next.text);
 }
 
 // oneliner for checking if token is type keyword
@@ -169,36 +169,13 @@ int expression() {
     return PARSE_ERR;
 }
 
-// discards token like a maniac until it finds '}'
-// or dies in the attempt
-int drop_until_brace() {
-    int i=0;
-    while(true) {
-        error("***: dropping \"%s\" token",next.text);
-        shift();
-        if(next.code == '}') {
-            break;
-        }
-        if(next.code == 0) {
-            error("***: reached end of file: '{' is not closed");
-            return PARSE_ERR;
-        }
-        i++;
-    }
-    if(i != 0)
-        return PARSE_WARN;
-
-    shift();
-
-    return PARSE_OK;
-}
-
 /*==============================================*/
 /** ** ** ** **   MAIN FUNCTION    ** ** ** ** **/
 /*==============================================*/
 
 int main(int argc, char *argv[]) {
     int ret;
+
 
     if(argc == 2) {
         if((yyin = fopen(argv[1],"r")) == NULL)
@@ -210,6 +187,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr,msg);
         }
         verbose("Entry point: object file initialized*");
+
         ret = program();
         qgen("END\n");
         quit_codegen();
@@ -235,6 +213,15 @@ int main(int argc, char *argv[]) {
  *      (declaration | definition)* main
  */
 int program() {
+
+    char *fmt_str;
+    fmt_str = strdup("%%li");
+    int_fmt_str_addr = qgen_str_stat(fmt_str);
+    free(fmt_str);
+    fmt_str = strdup("%%c");
+    char_fmt_str_addr = qgen_str_stat(fmt_str);
+    free(fmt_str);
+
     shift();
     while(next.code != MAIN) {
         /* verify declaration correct */
@@ -291,6 +278,11 @@ int declaration() {
 
     shift();
 
+    // store the variable (other than string)
+    if(expected_type != STRING) {
+        addr = qgen_declare_var(expected_type,current_scope);
+    }
+
     if(next.code == '[') {
         if(expected_type != STRING) {
             error("declaration: brackets are only meant for string variables");
@@ -321,8 +313,6 @@ int declaration() {
         shift();
     } // case '[' dealt with
 
-    //TODO: qgen - store
-
     if(next.code == ARROW) {
         // next is arrow, so go ahead
 
@@ -340,13 +330,16 @@ int declaration() {
             shift();
 
         } else if(next.code == SCAN) { // uketoru
-            if(expected_type == STRING && string_size == 0) {
-                error("declaration: can't declare string without explicit size when initializing by scanning");
-                free(name);
-                return PARSE_ERR;
+            if(expected_type == STRING) {
+                if(string_size == 0) {
+                    error("declaration: can't declare string without explicit size when initializing by scanning");
+                    free(name);
+                    return PARSE_ERR;
+                }
+                addr = qgen_declare_str_var_scan(STRING,current_scope);
             }
 
-            // TODO: qgen - scan assignment
+            qgen_scan(expected_type,addr);
 
             shift();
 
@@ -362,7 +355,7 @@ int declaration() {
                 return PARSE_ERR;
             }
 
-            // TODO: qgen - assignment
+            qgen_assign(expected_type,VAR_T,addr,current_scope);
 
             // already shifted in nexp()
         }
@@ -375,7 +368,7 @@ int declaration() {
         return PARSE_ERR;
     }
 
-    verbose("declaration: symbol %s successfully stored",name);
+
     free(name);
 
     return PARSE_OK;
@@ -438,7 +431,6 @@ int definition() {
             return PARSE_ERR;
 
         local_num_args++;
-        verbose("definition: defined %ith argument",local_num_args);
 
         // already shifted in argument()
     }
@@ -459,11 +451,14 @@ int definition() {
     // next is '{', so go ahead
     shift();
 
+    reset_local_vars();
+
     if(code() == PARSE_ERR)
         return PARSE_ERR;
 
-    // code is parsed: reset return_type
+    // code is parsed: reset return_type and scope
     return_type = 0;
+    table->set_scope(0);
     return PARSE_OK;
 }
 
@@ -513,6 +508,8 @@ int mn() {
     // next is '{', so go ahead
     shift();
 
+    reset_local_vars();
+
     if(code() == PARSE_ERR)
         return PARSE_ERR;
 
@@ -533,7 +530,7 @@ int code() {
     int func_or_var, type;
     int plus_or_minus; // if we save the + / - we can avoid repeating their code twice
 
-    int param_count = 0, offset = 0, of_type;
+    //int param_count = 0, offset = 0, of_type;
     unsigned int address, label1, label2, label3;
     SymbolRegister *reg = NULL;
 
@@ -577,7 +574,7 @@ int code() {
 
                 // increment magic!
                 verbose("code: increment magic");
-                qgen_un_op(plus_or_minus,type,address);
+                qgen_un_op(plus_or_minus,type,func_or_var,address,table->get_scope());
 
                 shift();
 
@@ -605,8 +602,6 @@ int code() {
                     break;
                 } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
 
-                    // TODO: qgen - fetch arg/var address
-
                     // look for asignment
                     shift();
 
@@ -624,7 +619,7 @@ int code() {
 
                     if(next.code == STR) {
                         // reserve mem for string literal
-                        unsigned int str_addr = qgen_str(yylval.sval);
+                        unsigned int str_addr = qgen_str_lit(next.text);
 
                         if(type == STRING) {
                             qgen("\tS(0x%x) = 0x%x;",address,str_addr);
@@ -654,7 +649,7 @@ int code() {
                     }
                     // already shifted in nexp()
 
-                    // TODO: qgen_assign(type,address);
+                    qgen_assign(type,func_or_var,address,table->get_scope());
 
                     break;
                 }
@@ -780,16 +775,84 @@ int code() {
 
             shift();
 
+            char stringify[64];
+            int aux_reg;
+            label1 = qgen_reserve_tag();
+
             while(next.code != ')') {
 
-                // TODO: qgen - print tokens
+                // TODO: push params
+
+                if(next.code == ID) {
+                    if(!find_in_table(next.text,reg,&func_or_var,&type,&address)) {
+                        error("code: %s was not previously declared",
+                                next.text);
+                        return PARSE_ERR;
+                    } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
+                        if(type == STRING) {
+                            // get value inside
+                            qgen_get_vararg(STRING,func_or_var,address,table->get_scope());
+                            aux_reg = result_reg(STRING);
+
+                            qgen("\tR1 = R%d;",aux_reg);
+                            free_reg(STRING,aux_reg);
+
+                            goto print_jump;
+                        } else if(type == INT || type == UINT) {
+                            qgen_get_vararg(type,func_or_var,address,table->get_scope());
+                            aux_reg = result_reg(type);
+
+                            // put number in
+                            qgen("\tR2 = R%d;",aux_reg);
+                            free_reg(STRING,aux_reg);
+
+                            // global format string
+                            qgen("\tR1 = 0x%x;",int_fmt_str_addr);
+
+                            goto print_jump;
+                        } else if(type == CHAR) {
+                            qgen_get_vararg(type,func_or_var,address,table->get_scope());
+                            aux_reg = result_reg(type);
+
+                            // put number in
+                            qgen("\tR2 = R%d;",aux_reg);
+                            free_reg(STRING,aux_reg);
+
+                            // global format string
+                            qgen("\tR1 = 0x%x;",char_fmt_str_addr);
+
+                            goto print_jump;
+                        }
+                    }
+                } else if(next.code == STR) {
+                    address = qgen_str_lit(next.text);
+                } else if(next.code == FLO_N) {
+                    sprintf(stringify,"%f",next.lexed.fval);
+                    address = qgen_str_stat(stringify);
+                } else if(next.code == INT_N) {
+                    sprintf(stringify,"%li",next.lexed.dval);
+                    address = qgen_str_stat(stringify);
+                } else if(next.code == TRUE) {
+                    sprintf(stringify,"true");
+                    address = qgen_str_stat(stringify);
+                } else if(next.code == FALSE) {
+                    sprintf(stringify,"false");
+                    address = qgen_str_stat(stringify);
+                }
+
+                // dirección de la ristra
+                qgen("\tR1 = 0x%x;",address);
+                // etiqueta de retorno
+print_jump:     qgen("\tR0 = %d;",label1);
+                // salto a impresión
+                qgen("\tGT(putf_);");
+                // siguiente instrucción
+                qgen_write_reserved_tag(label1);
 
                 shift();
 
+                // TODO: pop params
             }
-            verbose("code: sending %i parameters to print", param_count);
-
-            // TODO: qgen - print
 
             shift(); // done with this statement
             break;
@@ -812,31 +875,47 @@ int code() {
                     return PARSE_ERR;
                 }
 
-                // TODO: qgen - return
-                //qgen("\tR0=0;\t// no return");
-                //qgen("\tGT(R6);// go up the caller");
+                // get rid of all the stack taken previously
+                qgen("\tR7 = R6;");
+
+                // pop numargs * 4 and release all that stack
+                qgen_release_stack(4);
+                qgen("\tR6 = I(R7);");
+                qgen("\tR7 = R6 + 4;");
+
+                // pop ret addr
+                qgen("\tR6 = I(R7);");
+                qgen("\tGT(R6);");
 
                 return PARSE_OK;
             } else {
                 shift();
 
-                /* expression */
+                /* string literal */
                 if(next.code == STR) {
                     if(return_type != STRING) {
                         error("code: return type is not string!");
                         return PARSE_ERR;
                     }
+                    address = qgen_str_lit(next.text);
+                    aux_reg = get_32_reg();
+                    parsed_ret = STRING;
+                    qgen("\tR%d = 0x%x;",aux_reg,address);
+                } else {
+                    if((parsed_ret = expression()) == PARSE_ERR) {
+                        return PARSE_ERR;
+                    } else if(parsed_ret != return_type) {
+                        error("code: expression returns type %i, when function returns type %i",
+                                parsed_ret,return_type);
+                        return PARSE_ERR;
+                    }
+                    aux_reg = result_reg(parsed_ret);
                 }
-                else if((parsed_ret = expression()) == PARSE_ERR) {
-                    return PARSE_ERR;
-                } else if(parsed_ret != return_type) {
-                    error("code: expression returns type %i, when function returns type %i",
-                            parsed_ret,return_type);
-                    return PARSE_ERR;
-                }
+                /* expression */
                 verbose("code: returning an expression!");
 
                 // TODO: qgen - return something
+                qgen_push_result(parsed_ret);
 
                 if(next.code != '}') {
                     error("code: return statement must be at the end of block");
@@ -844,6 +923,19 @@ int code() {
                 }
 
                 shift();
+
+                // get rid of all the stack taken previously
+                qgen("\tR7 = R6;");
+
+                // pop numargs * 4 and release all that stack
+                qgen_release_stack(4);
+                qgen("\tR6 = I(R7);");
+                qgen("\tR7 = R6 + 4;");
+
+                // pop ret addr
+                qgen("\tR6 = I(R7);");
+                qgen("\tGT(R6);");
+
 
                 return PARSE_OK;
             }
@@ -923,7 +1015,8 @@ int nexp() {
         } else {
             char *name = strdup(next.text);
             if(func_or_var == VAR_T || func_or_var == ARG_T) {  // var/arg?
-                // TODO: qgen - get var / arg value
+
+                qgen_get_vararg(type,func_or_var,address,table->get_scope());
 
                 shift();
 
@@ -1247,7 +1340,7 @@ int call() {
 
     int numargs = 0;
     int *param_types, *pushed_32, *pushed_64;
-    unsigned int label;
+    unsigned int label = qgen_reserve_tag();
     char *fname;
 
     SymbolRegister *arg;
@@ -1266,6 +1359,17 @@ int call() {
     // save the registers
     pushed_32 = qgen_push_32_regs();
     pushed_64 = qgen_push_64_regs();
+
+    // reserve 8 for result
+    qgen_take_stack(8);
+
+    // push context (R6)
+    qgen_take_stack(4);
+    qgen("\tP(R7) = R6;");
+
+    // push ret addr
+    qgen_take_stack(4);
+    qgen("\tP(R7) = %d;",label);
 
     shift();
 
@@ -1289,7 +1393,8 @@ int call() {
                     param_count,of_type,fname,param_types[param_count]);
             return PARSE_ERR;
         }
-        qgen_push_param(of_type,param_count++);
+        param_count++;
+
         // already shifted in parameter()
     }
 
@@ -1301,20 +1406,35 @@ int call() {
 
     verbose("call: parsed %i parameters",param_count);
 
-    // save return address, goto label and then label said address
-    label = qgen_reserve_tag();
-    // push address
-    qgen_raise_stack(4);
-    qgen("\tP(R7) = %d;",label);
-    qgen_jmp(fname);
+    // push num args
+    qgen("\tI(R7) = %d;",numargs*4);
+
+    // set new context
+    qgen("\tR6 = R7;");
 
     // return label
-    qgen("L %d:\t\t//return address",label);
-    // first thing to do is retrieve regs
-    qgen_pop_32_regs(pushed_32);
+    qgen_write_reserved_tag(label);
+
+    // -------------------------------------
+    // worked our way through: now undo it
+    // -------------------------------------
+
+    // pop context
+    qgen_release_stack(4);
+    qgen("\tR6 = I(R7);");
+
+    // pop return
+    qgen_release_stack(4);
+    if(func->get_return() == FLOAT)
+        qgen_pop_result(func->get_return(),pushed_64);
+    else
+        qgen_pop_result(func->get_return(),pushed_32);
+
+    // pop regs
+    // WARN: this overrides the return we just popped
+    qgen_release_stack(8);
     qgen_pop_64_regs(pushed_64);
-    // second thing is pop result
-    qgen_pop_result(func->get_return());
+    qgen_pop_32_regs(pushed_32);
 
     // the loop ends with next being ')', so go ahead
     shift();
@@ -1337,10 +1457,14 @@ int parameter() {
      * which makes them pretty useless. but it keeps this
      * particular function extremely simple */
     if(next.code == STR) {
-        unsigned int address = qgen_str(next.text);
+        unsigned int address = qgen_str_lit(next.text);
         qgen("\tR%d = 0x%x;",get_32_reg(),address);
         return STRING;
     } 
+
+    // push params to the stack... but only identifiers
+
+
     /* note: this one is also such a block. it states that
      * a param can only be one that matches a nexp; that is,
      * either a numeric literal, a numeric expression or a

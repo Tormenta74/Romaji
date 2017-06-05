@@ -1,0 +1,22 @@
+# ------------------------------------------------------------------- 
+# ULPGC, Procesadores de Lenguajes
+# Test #7 de la batería de tests en el lenguaje Romaji
+# Diego Sáinz de Medrano, marzo 2017
+# -------------------------------------------------------------------
+
+# a demonstration of the use of all of the operators
+omo:kyo
+{
+    seisu i <- 0
+    #naga seisu l   # removed from the language
+    #nashi seisu u <- 0
+    #baito c <- 0
+    furotingu f <- 0.0
+    #daburu d   # removed from the language
+    mojiretsu s[] <- "Length obtained on initialization"
+    mojiretsu s1[32]
+    #shinri b   # not meant to be a variable
+    #kyo v      # not meant to be a variable
+    shi
+}
+
