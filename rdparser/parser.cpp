@@ -807,7 +807,7 @@ int code() {
                             free_reg(STRING,aux_reg);
 
                             // global format string
-                            qgen("\tR1 = 0x%x;",int_fmt_str_addr);
+                            qgen("\tR1 = 0x%x;\t//int fmt string",int_fmt_str_addr);
 
                             goto print_jump;
                         } else if(type == CHAR) {
@@ -819,7 +819,7 @@ int code() {
                             free_reg(STRING,aux_reg);
 
                             // global format string
-                            qgen("\tR1 = 0x%x;",char_fmt_str_addr);
+                            qgen("\tR1 = 0x%x;\t//char fmt string",char_fmt_str_addr);
 
                             goto print_jump;
                         }
@@ -843,7 +843,7 @@ int code() {
                 // dirección de la ristra
                 qgen("\tR1 = 0x%x;",address);
                 // etiqueta de retorno
-print_jump:     qgen("\tR0 = %d;",label1);
+print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                 // salto a impresión
                 qgen("\tGT(putf_);");
                 // siguiente instrucción
@@ -1353,6 +1353,8 @@ int call() {
     arg = func;
     for(int i=0; i<numargs; i++) {
         arg = arg->next;
+        verbose("call: %s expects %i parameter to be of type %i",
+                fname,i,arg->get_return());
         param_types[i] = arg->get_return();
     }
 
@@ -1412,6 +1414,9 @@ int call() {
     // set new context
     qgen("\tR6 = R7;");
 
+    // and finally jump
+    qgen_jmp(func->get_name());
+
     // return label
     qgen_write_reserved_tag(label);
 
@@ -1466,6 +1471,10 @@ int parameter() {
     int func_or_var, type;
     unsigned int addr;
 
+
+    /* note: this one is also such a block. it states that
+     * a param can only be a variable (or argument) */
+
     // push params to the stack... but only identifiers
     if(next.code == ID) {
         if(!find_in_table(next.text,reg,&func_or_var,&type,&addr)) {
@@ -1474,13 +1483,12 @@ int parameter() {
         } else if(func_or_var == VAR_T || func_or_var == ARG_T) {
             // TODO: qgen - push param
             qgen_push_param(type,func_or_var,addr,table->get_scope());
+            shift();
+            return type;
         }
     }
 
-    /* note: this one is also such a block. it states that
-     * a param can only be one that matches a nexp; that is,
-     * either a numeric literal, a numeric expression or a
-     * numeric type variable */
-    return nexp();
+    // any other thing
+    return PARSE_ERR;
 }
 
