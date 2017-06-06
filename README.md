@@ -1,8 +1,16 @@
-#Romaji
+# Romaji
 
-Compilador y especificación del lenguaje Romaji, incluyendo un módulo de análisis sintáctico por descenso recursivo y uno de generación de código Q. Para la versión "limpia" del compilador con el analizador sintáctico por descenso recursivo, hacer un checkout al commit con la etiqueta "alpha" (más útil para una visión del parseador sin la complejidad añadida de las instrucciones de generación de código).
+Compilador y especificación del lenguaje Romaji, incluyendo un módulo de análisis sintáctico por descenso recursivo y uno de generación de código Q en ~7K líneas (ver fichero _linecount.txt_).
 
 ---
+## Versiones
+- latest: (Important) fixes in codegen. **HEAD**
+- beta: Recursive descent parser slightly redesigned. Codegen completely revamped.
+- alpha: First attempt at codegen. Current grammar entirely working.
+- clusterfuck: First major change in the grammar (barely working parser, no codegen).
+
+---
+## Gramática
 Los cambios más significativos de la gramática con respecto a la especificación original son los siguientes:
 
 - La función principal ahora se declara sin argumentos de entrada.
@@ -13,7 +21,7 @@ Los cambios más significativos de la gramática con respecto a la especificaci�
 - Las funciones sólo pueden retornar valores (vía expresiones, tanto numéricas como lógicas)
 
 ---
-##Generación de código
+## Generación de código
 
 Existen las siguientes funcionalidades:
 - declaración de variables globales (estáticas) y locales (en memoria de pila) y asignación

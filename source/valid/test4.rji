@@ -18,7 +18,7 @@ omo:seisu
 {
     seisu i <- 0
     seisu j
-    naka < i 10 {
+    naka & shin < i 10 {
         to = i 5 {
             tsutaeru ("I'm number five!")
         }

@@ -1,4 +1,4 @@
-# ------------------------------------------------------------------- 
+# -------------------------------------------------------------------
 # ULPGC, Procesadores de Lenguajes
 # Programa factorial, parte de la batería de tests en el
 # lenguaje Romaji
@@ -8,28 +8,30 @@
 kansu factorial:seisu <-
     seisu:n
 {
+
     to < n 0 {
         tsutaeru("Factorial is undefined for negative numbers")
         kisu -1
     }
-    
+
     to = n 0 {
         kisu 1
     }
-    
-    kisu * n factorial (- n 1)
+
+    seisu nn <- - n 1
+    nn <- factorial(nn)
+
+    kisu * n nn
 }
 
-omo:seisu 
+omo:seisu
 {
-    seisu n
-    tsutaeru("Introduce a number (integer, please)")
-    n <- uketoru   # scan functionality not yet implemented
-    n <- 9
-    seisu f <- factorial (n)
-    tsutaeru(n "'s factorial is " f)
-    to < f 1 {
-        kisu -1
-    } 
+    seisu n <- 1
+    seisu f
+    naka < n 15 {
+        f <- factorial(n)
+        tsutaeru(n "'s factorial is " f)
+        ++ n
+    }
     kisu 0
 }

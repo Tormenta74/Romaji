@@ -43,6 +43,7 @@ const char *type_access(int type) {
     case INT:
         return "I";
     case UINT:
+    case BOOL:  // needed for return values
         return "P";
     case FLOAT:
         return "D";
@@ -86,6 +87,15 @@ unsigned short type_length(int type) {
     }
 }
 
+void print_regs() {
+    /*printf("32: |");
+    for(int i=0; i<6; i++)
+        printf("%d|",regs32[i]);
+    printf("\n64: |");
+    for(int i=0; i<4; i++)
+        printf("%d|",regs64[i]);
+    printf("\n\n");*/
+}
 
 /*==============================================*/
 /*= ** ** ** **   QGEN FUNCTIONS   ** ** ** ** =*/
@@ -125,6 +135,7 @@ void codegen(char *qline) {
 // function code
 int qgen_tag(char *fname) {
     function_space[current_tag-1] = strdup(fname);
+    printf("codegen: generated label %d\n",current_tag);
     qgen("L %d:\t// kansu %s",current_tag,fname);
     return current_tag++;
 }
@@ -132,11 +143,13 @@ int qgen_tag(char *fname) {
 // reserve a label for conditional guards
 int qgen_reserve_tag() {
     function_space[current_tag-1] = strdup("shi");
+    printf("codegen: reserved label %d\n",current_tag);
     return current_tag++;
 }
 
 // writes a reserved label
 void qgen_write_reserved_tag(int label) {
+    printf("codegen: written reserved label %d\n",label);
     qgen("L %d:\t",label);
 }
 
@@ -219,6 +232,7 @@ unsigned int qgen_declare_var(int type, int scope) {
     } else {
         qgen_take_stack(type_length(type));
         local_var_offset += type_length(type);
+        qgen("\t%s(R7) = 0;",type_access(type));
         return local_var_offset;
     }
 }
@@ -329,18 +343,6 @@ void qgen_release_stack(int n) {
 void qgen_take_stack(int n) {
     qgen("\tR7 = R7 - %d;",n);
 }
-void qgen_push_context() {
-    qgen_take_stack(4);
-    qgen("\tI(R7) = R6;");
-}
-void qgen_push_ret_addr(int label) {
-    qgen_take_stack(4);
-    qgen("\tI(R7) = %d;",label);
-}
-// offset is number of args * 4
-void qgen_set_context() {
-    qgen("\tR6 = R7;"); // position R6
-}
 
 // pushes R1..R6 to the top of the stack
 int *qgen_push_32_regs() {
@@ -350,7 +352,7 @@ int *qgen_push_32_regs() {
         if(regs64[j] == 1) {
             pushed[j] = 1; // mark as pushed
             regs32[j] = 0; // mark as free
-            qgen_release_stack(8);
+            qgen_take_stack(8);
             qgen("\tD(R7) = RR%d;", j); // 8 bytes
         }
     }
@@ -365,7 +367,7 @@ int *qgen_push_64_regs() {
         if(regs64[j] == 1) {
             pushed[j] = 1; // mark as pushed
             regs64[j] = 0; // mark as free
-            qgen_release_stack(8);
+            qgen_take_stack(8);
             qgen("\tD(R7) = RR%d;", j); // 8 bytes
         }
     }
@@ -376,8 +378,8 @@ void qgen_pop_32_regs(int *pushed) {
     if(!pushed) return;
     for(int i=0; i<6; i++)
         if(pushed[i] == 1) {
-            qgen_take_stack(4);
             qgen("\tR%d = P(R7);",i);
+            qgen_release_stack(4);
             regs32[i] = 1;
         }
     free(pushed);
@@ -387,24 +389,28 @@ void qgen_pop_64_regs(int *pushed) {
     if(!pushed) return;
     for(int i=0; i<4; i++)
         if(pushed[i] == 1) {
-            qgen_take_stack(4);
-            qgen("\tR%d = P(R7);",i);
+            qgen("\tRR%d = P(R7);",i);
+            qgen_release_stack(8);
             regs64[i] = 1;
         }
     free(pushed);
 }
 
 void qgen_push_result(int type) {
-    qgen("\tR0 = I(R6);"); // get numargs
-    qgen("\tR0 = R0 + 12;"); // up fields: numargs, ret addr, ret contx
+    int reg_res = result_reg(type), reg_aux = get_32_reg();
+    qgen("\tR%d = I(R6);",reg_aux); // get numargs
+    qgen("\tR%d = R%d + 12;",  // up fields: numargs, ret addr, ret contx
+            reg_aux,reg_aux);
     if(type == VOID)
         return;
     if(type == FLOAT) {
-        qgen("\tD(R6+R0) = RR%d;",result_reg(type));
+        qgen("\tD(R6+R%d) = RR%d;",reg_aux,reg_res);
     } else {
-        qgen("\t%s(R6+R0) = R%d;",
-                type_access(type),result_reg(type));
+        qgen("\t%s(R6+R%d) = R%d;",
+                type_access(type),reg_aux,reg_res);
     }
+    free_32_reg(reg_aux);
+    free_reg(type,reg_res);
 }
 
 void qgen_pop_result(int type, int *unavailable) {
@@ -434,13 +440,17 @@ void qgen_pop_result(int type, int *unavailable) {
 }
 
 void qgen_push_param(int type, int arg_or_var, unsigned int addr, int scope) {
-    int reg_addr;
+    int reg_addr, regaux;
     qgen_take_stack(4);
     if(scope == 0) {
         qgen("\tP(R7) = 0x%x;",addr);           // push global address (easy)
     } else {
         if(arg_or_var == VAR_T) {
-            qgen("\tP(R7) = R6 - %d;",addr);    // address is relative to current
+            regaux = get_32_reg();
+            qgen("\tR%d = R6 - %d;",
+                    regaux,addr);
+            qgen("\tP(R7) = R%d;",regaux);    // address is relative to current
+            free_32_reg(regaux);
             // context
         } else {
             reg_addr = get_32_reg();
@@ -457,12 +467,13 @@ void qgen_push_param(int type, int arg_or_var, unsigned int addr, int scope) {
 // gets the first free 32 register
 int get_32_reg() {
     int ret = -1;
-    for(int i=0; i<7; i++)
+    for(int i=0; i<6; i++)
         if(regs32[i] == 0) {
             ret = last_fetched_32_reg = i;
             regs32[i] = 1;
             break;
         }
+    print_regs();
     return ret;
 }
 
@@ -475,6 +486,7 @@ int get_64_reg() {
             regs64[i] = 1;
             break;
         }
+    print_regs();
     return ret;
 }
 
@@ -490,11 +502,13 @@ void free_32_reg(int reg) {
     if(reg < 0 && reg > 6)
         return;
     regs32[reg] = 0;
+    print_regs();
 }
 void free_64_reg(int reg) {
     if(reg < 0 && reg > 3)
         return;
     regs64[reg] = 0;
+    print_regs();
 }
 void free_reg(int type, int reg) {
     if(type == FLOAT)
@@ -504,7 +518,7 @@ void free_reg(int type, int reg) {
 }
 
 void qgen_get_vararg(int type, int arg_or_var, unsigned int addr, int scope) {
-    int reg;
+    int reg, regaddr;
     if(scope == 0) {
         if(type == FLOAT) {
             qgen("\tRR%d = D(0x%x);",
@@ -514,31 +528,37 @@ void qgen_get_vararg(int type, int arg_or_var, unsigned int addr, int scope) {
                     get_32_reg(),type_access(type),addr);
         }
     } else {
-        if(type == FLOAT) {
-            if(arg_or_var == VAR_T) {
-                reg = get_64_reg();
-                qgen("\tRR%d = D(R6-%d);",   // up/down 1 in stack
+        if(arg_or_var == VAR_T) {
+            if(type == FLOAT) {
+                reg = get_32_reg();
+                qgen("\tRR%d = D(R6-%d);",
                         reg,addr);
             } else {
                 reg = get_32_reg();
-                qgen("\tR%d = P(R6+%d);",  // get memory addr
-                        reg,addr);
-                qgen("\tRR%d = %s(R%d);",
-                        get_64_reg(),type_access(type),reg);
-                free_32_reg(reg);
-            }
-        } else {
-            if(arg_or_var == VAR_T) {
-                reg = get_32_reg();
-                qgen("\tR%d = %s(R6-%d);",   // up/down 1 in stack
+                qgen("\tR%d = %s(R6-%d);",
                         reg,type_access(type),addr);
+            }
+        } else {    // ARG_T
+            regaddr = get_32_reg();
+            qgen("\tR%d = %d + 4;",     // arg offset from R6
+                    regaddr,addr);
+            qgen("\tR%d = R%d + R6;",   // arg absolute offset 
+                    regaddr,regaddr);
+            qgen("\tR%d = P(R%d);",     // content of arg (which is address)
+                    regaddr,regaddr);
+            //qgen("\tR%d = R%d + R6;",   // absolute address
+                    //regaddr,regaddr);
+            if(type == FLOAT) {
+                reg = get_64_reg();
+                qgen("\tRR%d = D(R%d);",
+                        reg,regaddr);
+
             } else {
                 reg = get_32_reg();
-                qgen("\tR%d = U(R6+%d);",  // get memory addr
-                        reg,addr);
                 qgen("\tR%d = %s(R%d);",
-                        reg,type_access(type),reg);
+                        reg,type_access(type),regaddr);
             }
+            free_32_reg(regaddr);
         }
     }
 }
@@ -553,12 +573,13 @@ void qgen_get_flo_val(double val, int reg) {
 void qgen_bi_op(int oper, int type, int reg1, int reg2) {
     if(type == FLOAT) {
         qgen("\tRR%d = RR%d %c RR%d;",
-                get_64_reg(),reg1,oper,reg2);
+                reg1,reg1,oper,reg2);
+        last_fetched_64_reg = reg1;
     } else {
         qgen("\tR%d = R%d %c R%d;",
-                get_32_reg(),reg1,oper,reg2);
+                reg1,reg1,oper,reg2);
+        last_fetched_32_reg = reg1;
     }
-    free_reg(type,reg1);
     free_reg(type,reg2);
 }
 
@@ -597,8 +618,8 @@ void qgen_un_op(int plus_or_minus, int type, int arg_or_var, unsigned int addr, 
         } else {
             qgen("\tR%d = %s(0x%x);",
                     reg,type_access(type),addr);
-            qgen("\tR%d = %c%cR%d;",
-                    reg,plus_or_minus,plus_or_minus,reg);
+            qgen("\tR%d = R%d %c 1;",
+                    reg,reg,plus_or_minus);
             qgen("\t%s(0x%x) = R%d;",
                     type_access(type),addr,reg);
         }
@@ -610,15 +631,15 @@ void qgen_un_op(int plus_or_minus, int type, int arg_or_var, unsigned int addr, 
             if(arg_or_var == VAR_T) {
                 qgen("\tR%d = %s(R6-%d);",
                         reg,type_access(type),addr);
-                qgen("\tR%d = %c%cR%d;",
-                        reg,plus_or_minus,plus_or_minus,reg);
+                qgen("\tR%d = R%d %c 1;",
+                        reg,reg,plus_or_minus);
                 qgen("\t%s(R6-%d) = R%d;",
                         type_access(type),addr,reg);
             } else {
                 qgen("\tR%d = %s(R6+%d);",
                         reg,type_access(type),addr);
-                qgen("\tR%d = %c%cR%d;",
-                        reg,plus_or_minus,plus_or_minus,reg);
+                qgen("\tR%d = R%d %c 1;",
+                        reg,reg,plus_or_minus);
                 qgen("\t%s(R6+%d) = R%d;",
                         type_access(type),addr,reg);
             }
