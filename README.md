@@ -3,7 +3,7 @@
 Compilador y especificación del lenguaje Romaji, incluyendo un módulo de análisis sintáctico por descenso recursivo y uno de generación de código Q en ~7K líneas (ver fichero _linecount.txt_).
 
 ### Versiones
-- latest: (Important) fixes in codegen. **HEAD**
+- beta-1: Very important fixes in codegen. Almost complete compatibility with Q machine. **<- HEAD**
 - beta: Recursive descent parser slightly redesigned. Codegen completely revamped.
 - alpha: First attempt at codegen. Current grammar entirely working.
 - clusterfuck: First major change in the grammar (barely working parser, no codegen).
