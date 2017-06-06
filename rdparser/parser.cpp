@@ -59,6 +59,7 @@ int return_type = 0;
 
 unsigned int int_fmt_str_addr = 0;
 unsigned int char_fmt_str_addr = 0;
+unsigned int newl_fmt_str_addr = 0;
 
 /*==============================================*/
 /** ** **        HELPER FUNCTIONS        ** ** **/
@@ -95,7 +96,7 @@ void shift() {
 
 // oneliner for checking if token is type keyword
 bool is_type(int token) {
-    return 
+    return
         token == INT ||
         token == UINT ||
         token == CHAR ||
@@ -107,7 +108,7 @@ bool is_type(int token) {
 
 // oneliner for checking if token is a numeric operator
 bool is_num_oper(int token) {
-    return 
+    return
         token == '+' ||
         token == '-' ||
         token == '*' ||
@@ -117,7 +118,7 @@ bool is_num_oper(int token) {
 
 // oneliner for checking if token is a logic operator
 bool is_logic_oper(int token) {
-    return 
+    return
         token == '=' ||
         token == '<' ||
         token == '>' ||
@@ -151,7 +152,7 @@ int expression() {
     if(is_logic_oper(next.code)
             || next.code == TRUE
             || next.code == FALSE) {
-        return bexp(true);
+        return bexp(false);
     }
     if(next.code == ID) {
         SymbolRegister *reg = NULL;
@@ -161,7 +162,7 @@ int expression() {
             return PARSE_ERR;
         }
         if(type == BOOL) {
-            return bexp(true);
+            return bexp(false);
         } else if(type != VOID) {
             return nexp();
         }
@@ -194,6 +195,7 @@ int main(int argc, char *argv[]) {
     } else {
         ret = program();
     }
+
     if(ret == PARSE_OK)
         printf(BOLD GREEN "Compilation OK\n" CLEAR_FORMAT);
     printf("Returned: %i\nState of the symbol table:\n",ret);
@@ -221,6 +223,9 @@ int program() {
     fmt_str = strdup("%%c");
     char_fmt_str_addr = qgen_str_stat(fmt_str);
     free(fmt_str);
+    fmt_str = strdup("\\n");
+    newl_fmt_str_addr = qgen_str_stat(fmt_str);
+    free(fmt_str);
 
     shift();
     while(next.code != MAIN) {
@@ -245,7 +250,7 @@ int program() {
         }
 
         // already shifted in either declaration or definition
-    } 
+    }
 
     return mn();
 }
@@ -288,7 +293,7 @@ int declaration() {
             error("declaration: brackets are only meant for string variables");
             free(name);
             return PARSE_ERR;
-        } 
+        }
 
         // handle the possible number and closing bracket
 
@@ -507,7 +512,7 @@ int mn() {
     qgen("L 0:\t\t// entry point");
     qgen_take_stack(4); // for the ret addr
     qgen("\tI(R7) = -2;"); // return address is always this
-    qgen_take_stack(4); // for the param numbers 
+    qgen_take_stack(4); // for the param numbers
     qgen("\tI(R7) = 0;");  // obvious
     qgen("\tR6 = R7;\t//start context");
 
@@ -606,7 +611,7 @@ int code() {
                     // already shifted in call();
 
                     break;
-                } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
+                } else if (func_or_var == VAR_T || func_or_var == ARG_T) {
 
                     // look for asignment
                     shift();
@@ -662,7 +667,7 @@ int code() {
             }
         case IF:
             // we reserve 3 labels:
-            // one for the first code block, another for the 
+            // one for the first code block, another for the
             // second (or the end of such code block) and another
             // for the end of the second block, if there is any
             label1 = qgen_reserve_tag();
@@ -719,6 +724,8 @@ int code() {
                     return PARSE_ERR;
 
                 // already shifted in code()
+            } else {
+                qgen_write_reserved_tag(label2);
             }
 
             // put the reserved label for the end of the first (or second,
@@ -797,7 +804,7 @@ int code() {
                         error("code: %s was not previously declared",
                                 next.text);
                         return PARSE_ERR;
-                    } else if (func_or_var == VAR_T || func_or_var == ARG_T) { 
+                    } else if (func_or_var == VAR_T || func_or_var == ARG_T) {
                         if(type == STRING) {
                             // get value inside
                             qgen_get_vararg(STRING,func_or_var,address,table->get_scope());
@@ -864,6 +871,19 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                 qgen_pop_32_regs(pushed_32);
             }
 
+            // print newline
+            pushed_32 = qgen_push_32_regs();
+            pushed_64 = qgen_push_64_regs();
+
+            label1 = qgen_reserve_tag();
+            qgen("\tR0 = %d;\t\t//return label",label1);
+            qgen("\tGT(putnl_);");
+            qgen_write_reserved_tag(label1);
+
+            qgen_pop_64_regs(pushed_64);
+            qgen_pop_32_regs(pushed_32);
+
+
             shift(); // done with this statement
             break;
         case RET:
@@ -911,7 +931,7 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                     aux_reg = get_32_reg();
                     parsed_ret = STRING;
                     qgen("\tR%d = 0x%x;",aux_reg,address);
-                } else {
+                } else { /* expression */
                     if((parsed_ret = expression()) == PARSE_ERR) {
                         return PARSE_ERR;
                     } else if(parsed_ret != return_type) {
@@ -921,10 +941,10 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                     }
                     aux_reg = result_reg(parsed_ret);
                 }
-                /* expression */
                 verbose("code: returning an expression!");
 
                 qgen_push_result(parsed_ret);
+                free_reg(parsed_ret,aux_reg);
 
                 if(next.code != '}') {
                     error("code: return statement must be at the end of block");
@@ -1147,11 +1167,12 @@ int bexp(bool first_call) {
         }
 
         reg2 = result_reg(BOOL);
-        reg1 = get_32_reg();
-        qgen("\tR%d = ! R%d;",reg1,reg2);
+        qgen("\tR%d = ! R%d;",reg2,reg2);
 
         if(first_call)
-            qgen("\tIF(R%d)",reg1);
+            qgen("\tIF(R%d)",reg2);
+
+        free_32_reg(reg2);
 
         // already shifted in bexp()
 
@@ -1184,7 +1205,7 @@ int bexp(bool first_call) {
         if(first_call) { // meaning this & / | is the root operator
             qgen("\tIF(R%d)",reg1);
             free_32_reg(reg1);
-        } 
+        }
 
         // already shifted in bexp()
 
@@ -1464,7 +1485,7 @@ int call() {
  *      STR | nexp
  */
 int parameter() {
-    /* note: this block is actually significant to the 
+    /* note: this block is actually significant to the
      * language spec, since we are basically saying that
      * no operations can be performed on string literals,
      * which makes them pretty useless. but it keeps this
@@ -1473,7 +1494,7 @@ int parameter() {
         unsigned int address = qgen_str_lit(next.text);
         qgen("\tR%d = 0x%x;\t//this is not going to be used",get_32_reg(),address);
         return STRING;
-    } 
+    }
 
     SymbolRegister *reg = NULL;
     int func_or_var, type;

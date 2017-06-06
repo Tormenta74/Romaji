@@ -1,31 +1,32 @@
-
-
-kansu fibo:seisu <-
-    seisu:n
-{
-    seisu n2
-
-    to < n 2 {
-        kisu n
-    } ta {
-        seisu n1
+kansu fibo:seisu <- seisu:n {
+    to = n 0 {
+        kisu 0
+    }
+    to = n 1 {
+        kisu 1
     }
 
-    n1 <- - n 1
-    n2 <- - n 2
+    seisu n2
+    seisu n1
 
-    kisu + fibo(n1) fibo(n2)
+    n1 <- - n 1
+    n1 <- fibo(n1)
+
+    n2 <- - n 2
+    n2 <- fibo(n2)
+
+    kisu + n1 n2
 }
 
 
-omo:kyo
-{
+omo:kyo {
     seisu index <- 0
+    seisu result
 
-    naka < index 10 {
-        seisu result <- fibo(index)
-        ++ index
+    naka < index 30 {
+        result <- fibo(index)
         tsutaeru("fibo(" index ") = " result)
+        ++ index
     }
 
     shi

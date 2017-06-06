@@ -1,0 +1,59 @@
+# definimos una función que determine si un número es primo
+
+kansu is_prime?:shinri <- seisu:n {
+    seisu i <- 2
+
+    to = n 2  {
+        kisu shin
+    }
+    to = % n 2 0 {
+        kisu nise
+    }
+
+    naka < * i i n {
+        to = % n i 0 {
+            kisu nise
+        }
+        ++ i
+    }
+    kisu shin
+}
+
+# definimos una función que devuelve el primer número de
+# Fibonacci mayor que un número dado
+
+kansu next_f_number:seisu <- seisu:limit {
+    seisu f1 <- 0 
+    seisu f2 <- 1
+    seisu tmp
+
+    naka < f2 limit {
+        tmp <- f2
+        f2 <- + f1 f2
+        f1 <- tmp
+    }
+    kisu f2
+}
+
+# punto de entrada
+
+omo:seisu {
+    seisu my_number
+    seisu next_f <- -1
+
+    my_number <- 2  # first true prime
+
+    naka < my_number 100 {
+        to is_prime? (my_number) {
+            next_f <- next_f_number (my_number)
+            tsutaeru ("next fibonacci greater than " my_number
+                        " is " next_f)
+        }
+        ta {
+            tsutaeru (my_number " is not prime!")
+        }
+        ++ my_number
+    }
+
+    kisu next_f
+}
