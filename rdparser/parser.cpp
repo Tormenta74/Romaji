@@ -503,7 +503,13 @@ int mn() {
         return PARSE_ERR;
     }
 
+    // prepare the stack
     qgen("L 0:\t\t// entry point");
+    qgen_take_stack(4); // for the ret addr
+    qgen("\tI(R7) = -2;"); // return address is always this
+    qgen_take_stack(4); // for the param numbers 
+    qgen("\tI(R7) = 0;");  // obvious
+    qgen("\tR6 = R7;\t//start context");
 
     // next is '{', so go ahead
     shift();
@@ -777,11 +783,14 @@ int code() {
 
             char stringify[64];
             int aux_reg;
-            label1 = qgen_reserve_tag();
+            int *pushed_32, *pushed_64;
 
             while(next.code != ')') {
 
-                // TODO: push params
+                pushed_32 = qgen_push_32_regs();
+                pushed_64 = qgen_push_64_regs();
+
+                label1 = qgen_reserve_tag();
 
                 if(next.code == ID) {
                     if(!find_in_table(next.text,reg,&func_or_var,&type,&address)) {
@@ -804,7 +813,7 @@ int code() {
 
                             // put number in
                             qgen("\tR2 = R%d;",aux_reg);
-                            free_reg(STRING,aux_reg);
+                            free_reg(INT,aux_reg);
 
                             // global format string
                             qgen("\tR1 = 0x%x;\t//int fmt string",int_fmt_str_addr);
@@ -816,7 +825,7 @@ int code() {
 
                             // put number in
                             qgen("\tR2 = R%d;",aux_reg);
-                            free_reg(STRING,aux_reg);
+                            free_reg(CHAR,aux_reg);
 
                             // global format string
                             qgen("\tR1 = 0x%x;\t//char fmt string",char_fmt_str_addr);
@@ -851,7 +860,8 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
 
                 shift();
 
-                // TODO: pop params
+                qgen_pop_64_regs(pushed_64);
+                qgen_pop_32_regs(pushed_32);
             }
 
             shift(); // done with this statement
@@ -879,9 +889,9 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                 qgen("\tR7 = R6;");
 
                 // pop numargs * 4 and release all that stack
-                qgen_release_stack(4);
                 qgen("\tR6 = I(R7);");
-                qgen("\tR7 = R6 + 4;");
+                qgen("\tR6 = R6 + 4;");
+                qgen("\tR7 = R7 + R6;");
 
                 // pop ret addr
                 qgen("\tR6 = I(R7);");
@@ -914,7 +924,6 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                 /* expression */
                 verbose("code: returning an expression!");
 
-                // TODO: qgen - return something
                 qgen_push_result(parsed_ret);
 
                 if(next.code != '}') {
@@ -928,14 +937,13 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
                 qgen("\tR7 = R6;");
 
                 // pop numargs * 4 and release all that stack
-                qgen_release_stack(4);
                 qgen("\tR6 = I(R7);");
-                qgen("\tR7 = R6 + 4;");
+                qgen("\tR6 = R6 + 4;");
+                qgen("\tR7 = R7 + R6;");
 
                 // pop ret addr
                 qgen("\tR6 = I(R7);");
                 qgen("\tGT(R6);");
-
 
                 return PARSE_OK;
             }
@@ -982,7 +990,6 @@ print_jump:     qgen("\tR0 = %d;\t\t//return label",label1);
  * Return: type
  */
 int nexp() {
-    //TODO: compute return type in the integers case (well shitttt)
     int func_or_var, type = 0, operand_type_1, operand_type_2, opertor;
     int reg1, reg2;
     unsigned int address;
@@ -1409,6 +1416,7 @@ int call() {
     verbose("call: parsed %i parameters",param_count);
 
     // push num args
+    qgen_take_stack(4);
     qgen("\tI(R7) = %d;",numargs*4);
 
     // set new context

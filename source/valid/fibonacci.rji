@@ -3,20 +3,30 @@
 kansu fibo:seisu <-
     seisu:n
 {
+    seisu n2
+
     to < n 2 {
         kisu n
+    } ta {
+        seisu n1
     }
-    kisu + fibo(- n 1) fibo(- n 2)
+
+    n1 <- - n 1
+    n2 <- - n 2
+
+    kisu + fibo(n1) fibo(n2)
 }
 
 
 omo:kyo
 {
     seisu index <- 0
-        seisu result
+
     naka < index 10 {
-        result <- fibo(index)
+        seisu result <- fibo(index)
         ++ index
+        tsutaeru("fibo(" index ") = " result)
     }
+
     shi
 }

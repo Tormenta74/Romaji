@@ -1,28 +1,15 @@
-kansu i:seisu <- seisu:a {
-    ++ a
-    kisu a
-}
 
-kansu h:seisu <- seisu:a {
-    a <- i(a)
-    kisu a
-}
-
-kansu g:seisu <- seisu:a {
-    a <- h(a)
-    kisu a
-}
-
-kansu f:seisu <- seisu:a {
-    a <- g(a)
-    kisu a
+kansu f:seisu <-
+    seisu:x
+{
+    kisu + x 1
 }
 
 omo:kyo {
     seisu a <- + 2 3
+    ++a
     tsutaeru(a)
     f(a)
-    ++a
     tsutaeru(a)
     shi
 }

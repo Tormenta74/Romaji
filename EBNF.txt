@@ -11,6 +11,7 @@ declaration -> INT ID
             -> CHAR assignment
             -> STRING [ INT_N ] ID 
             -> STRING [ INT_N ] ID ARROW SCAN
+            -> STRING [ INT_N ] ID ARROW STR
             -> STRING [ ] ID ARROW STR
             -> FLOAT ID 
             -> FLOAT assignment
@@ -37,7 +38,7 @@ bexp    -> TRUE
         -> call 
         -> = bexp bexp 
         -> & bexp bexp 
-        -> | bexp bexp  ! careful: '|' is a token
+        -> | bexp bexp
         -> = nexp nexp 
         -> < nexp nexp 
         -> > nexp nexp 
