@@ -1,3 +1,10 @@
+# -------------------------------------------------------------------
+# ULPGC, Procesadores de Lenguajes
+# Programa de primos infinito, parte de la batería de tests en el
+# lenguaje Romaji
+# Diego Sáinz de Medrano, mayo 2017
+# -------------------------------------------------------------------
+
 # definimos una función que determine si un número es primo
 
 kansu is_prime?:shinri <- seisu:n {

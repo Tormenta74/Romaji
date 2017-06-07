@@ -1,3 +1,10 @@
+# -------------------------------------------------------------------
+# ULPGC, Procesadores de Lenguajes
+# Programa fibonacci, parte de la batería de tests en el
+# lenguaje Romaji
+# Diego Sáinz de Medrano, mayo 2017
+# -------------------------------------------------------------------
+
 kansu fibo:seisu <- seisu:n {
     to = n 0 {
         kisu 0

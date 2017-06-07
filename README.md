@@ -31,5 +31,6 @@ Existen las siguientes funcionalidades:
 - guardado y recuperación del contexto en llamadas a funciones
 - paso de parámetros en llamadas a funciones vía pila
 - paso de valor retorno de funciones vía pila
+- impresión de literales, variables numéricas enteras y variables de tipo ristra
 - salida del programa vía GT(-2)
 

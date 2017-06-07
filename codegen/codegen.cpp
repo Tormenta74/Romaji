@@ -313,7 +313,7 @@ unsigned int qgen_declare_str_var(char *string, int scope, int size=0) {
 
 unsigned int qgen_declare_str_var_scan(int size, int scope) {
     unsigned int addr = qgen_declare_str_var(size,scope);
-    qgen("\n\tscanf(\"%c%is\",&U(0x%x));\n",
+    qgen("\n\tscanf(\"%c%is\",&P(0x%x));\n",
             PERCENT_ASCII,size,addr);
     return addr;
 }

@@ -20,6 +20,8 @@ DRPTARGET = parser
 SYMTARGET = symtable
 CODTARGET = codegen
 
+RJIDIST = romaji-diegosainzdemedrano.zip
+
 # necessary files
 
 COD_O = $(BUILDDIR)/$(CODTARGET).o
@@ -39,6 +41,7 @@ LEX_O = $(BUILDDIR)/$(FLEXTARGET).yy.o
 LEX_C = $(BUILDDIR)/$(FLEXTARGET).yy.c
 LEX_L = $(LEXDIR)/$(FLEXTARGET).l
 
+.PHONY: all clean clean_compiled pack
 
 all: before rdparser_comp
 	@echo "Target \"$(TARGET)\" built. Bailing."
@@ -47,10 +50,14 @@ before:
 	[ -d $(BUILDDIR) ]  || mkdir -p $(BUILDDIR)
 
 clean:
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET) ./source/valid/*.q.c
+	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/*.c $(BUILDDIR)/*.h $(BUILDDIR)/*.output $(DEPSDIR)/*.gch $(TARGET) ./source/valid/*.q.c ./$(RJIDIST)
 
 clean_compiled:
 	rm -f ./source/valid/*.q.c
+
+pack:
+	@echo -e "Generando comprimido de la distribución de Romaji..."
+	@git archive --format=zip -o $(RJIDIST) master
 
 rdparser_comp: $(PAR_O) $(LEX_O) $(SYM_O) $(COD_O)
 	@echo -e "\nLinking $^"

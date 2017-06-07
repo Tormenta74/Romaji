@@ -12,6 +12,7 @@
 omo:seisu
 {
     mojiretsu salute[] <- "Hello, "
-    mojiretsu name[20] <- uketoru
-    tsutaeru (salute name "!\n")
+    mojiretsu name[20] <- "world"
+    tsutaeru (salute name "!")
+    shi
 }

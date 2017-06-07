@@ -1,4 +1,10 @@
+Nothing. All done!
 
-    stack:
-        - structure of stack use
+future improvements:
+    - improve variable scope detection when passing as arguments
+    - improve scopes (make them block level, not function level)
+    - add scanf_ library function to Qlib
+    - add abstraction to register saving
+    - add AST and plug code generation there*
 
+*very unlikely.
