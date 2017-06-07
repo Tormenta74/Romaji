@@ -340,7 +340,7 @@ int declaration() {
                     free(name);
                     return PARSE_ERR;
                 }
-                addr = qgen_declare_str_var_scan(STRING,current_scope);
+                addr = qgen_declare_str_var_scan(string_size,current_scope);
             }
 
             qgen_scan(expected_type,addr);

@@ -1,0 +1,14 @@
+Distribucion de Q (v3.7.3 2009-10-19), codigo de cuadruplas compilable en C.
+
+Contenido:
+
+Qman.txt     manual del lenguaje Q
+Q.h	     cabecera para programas en Q
+Qlib.h	     cabecera de biblioteca para Q
+Qlib.c	     biblioteca de rutinas parra Q
+IQ-*.o	     objeto (Linux 32 y 64 bits) del inteprete-depurador de Q
+ejemplos/    varios programas de ejemplo en Q
+
+Todo lo anterior, en el tgz
+
+(c) 2003..2009 Jose Fortes Galvez, jfortes@dis.ulpgc.es

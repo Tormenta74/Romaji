@@ -1,0 +1,4 @@
+Cambios realizados sobre Qlib:
+
+- Añadida una función pasarela `putnl_`, que sirve para realizar impresiones
+  de salto de línea.

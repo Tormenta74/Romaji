@@ -1,6 +1,5 @@
 
 build/
-Q/
 *.q.c
 
 rjicomp

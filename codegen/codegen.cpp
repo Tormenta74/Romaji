@@ -183,6 +183,7 @@ void reset_local_vars() {
     local_var_offset = 0;
 }
 
+// this one does not put double quotes (the token already has them)
 unsigned int qgen_str_lit(char *string) {
     char *filler = strndup(string,strlen(string));
     stat_address -= strlen(filler)+1;
@@ -197,6 +198,7 @@ unsigned int qgen_str_lit(char *string) {
     return stat_address;
 }
 
+// this one puts double quotes
 unsigned int qgen_str_stat(char *string) {
     char *filler = strndup(string,strlen(string));
     stat_address -= strlen(filler)+1;
