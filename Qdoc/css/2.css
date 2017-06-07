@@ -1,0 +1,37 @@
+@keyframes working-indicator-bar0 {
+    0% { opacity:0.25; }
+    0.01% { opacity:0.25; }
+    0.02% { opacity:1; }
+    50.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}@-webkit-keyframes working-indicator-bar0 {
+    0% { opacity:0.25; }
+    0.01% { opacity:0.25; }
+    0.02% { opacity:1; }
+    50.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}@keyframes working-indicator-bar1 {
+    0% { opacity:0.25; }
+    20.01% { opacity:0.25; }
+    20.02% { opacity:1; }
+    70.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}@-webkit-keyframes working-indicator-bar1 {
+    0% { opacity:0.25; }
+    20.01% { opacity:0.25; }
+    20.02% { opacity:1; }
+    70.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}@keyframes working-indicator-bar2 {
+    0% { opacity:0.25; }
+    40.01% { opacity:0.25; }
+    40.02% { opacity:1; }
+    90.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}@-webkit-keyframes working-indicator-bar2 {
+    0% { opacity:0.25; }
+    40.01% { opacity:0.25; }
+    40.02% { opacity:1; }
+    90.01% { opacity:0.25; }
+    100% { opacity:0.25; }
+}

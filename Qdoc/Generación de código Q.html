@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Generación de código Q</title>
+        <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet"> 
+        <link rel="stylesheet" href="css/default.css">
+        <link rel="stylesheet" href="css/1.css">
+        <link rel="stylesheet" href="css/2.css">
+        <link rel="stylesheet" href="css/3.css">
+        <link rel="stylesheet" href="css/4.css">
+        <link rel="stylesheet" href="css/5.css">
+        <link rel="stylesheet" href="css/6.css">
+        <link rel="stylesheet" href="css/7.css">
+        <link rel="stylesheet" href="css/8.css">
+        <link rel="stylesheet" href="css/9.css">
+        <link rel="stylesheet" href="css/10.css">
+        <link rel="stylesheet" href="css/11.css">
+        <link rel="stylesheet" href="css/12.css">
+    </head>
+    <body>
+        <div style="padding:100px;">
+            <h1 id="generación-de-código-q">Generación de código Q</h1>
+
+
+
+            <h4 id="diego-sáinz-de-medrano">Diego Sáinz de Medrano</h4>
+
+            <h2 id="introducción">Introducción</h2>
+
+            <p>Una vez construidos los analizadores léxico y sintáctico-semántico (con Flex y la técnica de <em>descenso recursivo</em> en C/C++ respectivamente), procedemos a integrar un módulo que genere código Q y lo imprima en un fichero objeto.</p>
+
+
+
+            <h2 id="inicialización-y-técnicas-de-impresión">Inicialización y técnicas de impresión</h2>
+
+            <p>Para generar código Q, abriremos un fichero con el mismo nombre que el fichero fuente más la extensión <code>.q.c</code> en el que escribiremos las cabeceras que se requieren para compatibilidad con la máquina Q:</p>
+
+            <pre class="prettyprint"><code class="language-C hljs ruleslanguage"><span class="hljs-array">#include </span><span class="hljs-string">"Q.h"</span>
+BEGIN</code></pre>
+
+            <p>Una vez finalizado el proceso de compilación escribiremos antes de cerrar el fichero objeto:</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs ruleslanguage"><span class="hljs-keyword">END</span></code></pre>
+
+            <hr>
+
+            <p>Para escribir todo tipo de código en el objeto, utilizaremos un wrapper de la función <code>fprintf</code> que nos facilitará enormemente el pasado de argumentos.</p>
+
+            <p>Dada la función</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs cpp"><span class="hljs-keyword">void</span> codegen(<span class="hljs-keyword">char</span> *qline) {
+    <span class="hljs-built_in">fprintf</span>(obj_file, qline);
+}</code></pre>
+
+            <p>definimos la siguiente macro</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-id">#define</span> <span class="hljs-function">qgen(...)</span> {\
+    <span class="hljs-value">char</span> qline<span class="hljs-attr_selector">[256]</span>;\
+    <span class="hljs-function">sprintf(q_line,__VA_ARGS__)</span>;\
+    <span class="hljs-function">strcat(q_line,<span class="hljs-string">"\n"</span>)</span>;\
+    <span class="hljs-function">codegen(q_line)</span>;\
+}</code></pre>
+
+            <p>que permite llamadas con argumentos variadicos. Un ejemplo de llamada es:</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs perl">    qgen(<span class="hljs-string">"L <span class="hljs-variable">%d</span>:\t"</span>,label);   <span class="hljs-regexp">//</span> label es un <span class="hljs-keyword">int</span></code></pre>
+
+
+
+            <h2 id="declaración-de-variables">Declaración de variables</h2>
+
+            <p>En Romaji se permite el uso de variables globales y locales. Las variables globales se almacenarán en memoria estática y serán accesibles a todo el programa (en las líneas posteriores a su declaración) mientras que las locales sólo serán accesibles al bloque de código de función en el que fueron declaradas, y se almacenarán en la pila, referenciadas por el <strong>contexto</strong> de la función.</p>
+
+            <p>La declaración de variables globales es sencilla. Una vez encontrado el tipo de la variable se escribirá un bloque de memoria estática de esta forma</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs r">STAT(<span class="hljs-number">0</span>)
+    <span class="hljs-keyword">...</span>
+CODE(<span class="hljs-number">0</span>)</code></pre>
+
+            <p>Donde podemos llamar a las funciones de memoria de Q. De acuerdo con el tipo, reservaremos memoria con la función <code>DAT</code> o <code>STR</code> para cadenas (se rellenará la memoria con espacios en blanco o el literal que se usó en la inicialización en este caso). La dirección de memoria estática (que previamente habremos decrementado en una cantidad de octetos adecuada para hacer caber el tipo de dato) será la que podamos utilizar para referenciar esta variable (para ello guardaremos la dirección en la tabla de símbolos).</p>
+
+            <p>El caso de las variables locales es aún más sencillo. Para todos los tipos de datos (menos las cadenas de caracteres) reservaremos tantos octetos de la pila como sea necesario y guardaremos la posición de la “base” de la variable como su dirección.</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-comment">// ejemplo de un caso int</span>
+<span class="hljs-function">qgen(<span class="hljs-string">"\tR7 = R7 - 4;"</span>)</span>;
+<span class="hljs-comment">// acceso</span>
+<span class="hljs-function">qgen(<span class="hljs-string">"\tR0 = I(R6 - %d);"</span>,address)</span>;</code></pre>
+
+            <h2 id="llamadas-a-funciones">Llamadas a funciones</h2>
+
+            <p>Para manejar las funciones en Romaji se ha hecho un uso intensivo de la pila de la máquina Q. Por cada llamada a una función se realizan las siguientes tareas:</p>
+
+            <ol>
+                <li>Salvado de registros</li>
+                <li>Salvado del frame pointer</li>
+                <li>Salvado de la dirección de retorno</li>
+                <li>Paso de parámetros</li>
+                <li>Salvado del número de parámetros</li>
+                <li>“Reset” del frame pointer</li>
+                <li>Salto al código de la función</li>
+            </ol>
+
+            <p>El contexto (o frame pointer) de una función es meramente una dirección de memoria de pila que será siempre referenciado por el registro R6. A partir de esta dirección se referencian los parámetros que se han pasado a la función y las variables que se han declarado localmente.</p>
+
+            <p>Las funciones, al retornar, se encargan de las siguientes tareas:</p>
+
+            <ol>
+                <li>Resetear el puntero de pila al frame pointer (descartando todas las variables locales).</li>
+                <li>Guardar el valor de retorno en la pila (opcional).</li>
+                <li>Descartar todos los parámetros almacenados en la pila.</li>
+                <li>Recuperar la dirección de retorno.</li>
+                <li>Saltar a la dirección de retorno.</li>
+            </ol>
+
+            <p>En la dirección de retorno se terminará de restaurar la pila:</p>
+
+            <ol>
+                <li>Recuperar el frame pointer del llamador</li>
+                <li>Recuperar el valor de retorno (opcional)</li>
+                <li>Liberar la pila asignada al área de retorno.</li>
+                <li>Salvado de registros.</li>
+            </ol>
+
+            <p>Al terminar esta operación, la pila queda restaurada a su estado inmediatamente anterior a la llamada, dado que por cada reserva de memoria de pila se ha liberado la misma.</p>
+
+            <h2 id="uso-de-parámetros-por-referencia">Uso de parámetros por referencia</h2>
+
+
+
+            <h2 id="manejo-de-registros">Manejo de registros</h2>
+
+            <h2 id="expresiones">Expresiones</h2>
+
+            <p>El manejo de expresiones en el compilador es relativamente sencillo. Cada vez que percibamos un operador, sabremos que hay que obtener los valores de los dos operandos, y luego guardar el valor de la operación per se. Cada vez que percibamos un terminal, será o bien <br>
+            una variable, una llamada a una función (en cuyo caso tomaremos el retorno), o un valor literal.</p>
+
+            <p>Pongamos la operación de ejemplo:</p>
+
+
+
+            <pre class="prettyprint"><code class=" hljs diff"><span class="hljs-addition">+ a 1</span></code></pre>
+
+            <p>El código se parecería a esto:</p>
+
+            <pre class="prettyprint"><code class="language-C hljs r">qgen(<span class="hljs-string">"\tR%d = I(0x%x);"</span>,get_reg(),address);
+<span class="hljs-keyword">...</span>
+qgen(<span class="hljs-string">"\tR%d = %d;"</span>,get_reg(),value);
+<span class="hljs-keyword">...</span>
+qgen(<span class="hljs-string">"\tR%d = R%d %c R%d;"</span>,reg1, reg1, oper, reg2);</code></pre>
+
+            <p>Las expresiones lógicas siguen un modelo parecido, con dos diferencias:</p>
+
+            <ol>
+                <li>No existen variables de tipo booleano (<code>shinri</code>), por lo que no se debe nunca recuperar el valor de una.</li>
+                <li>Sólo se llaman a expresiones booleanas cuando escribimos una guarda condicional (<code>to</code>, traducción de <code>if</code>), cuando escribimos la condición de un bucle (<code>naka</code>, traducción de <code>while</code>) o cuando retornamos en una función con retorno booleano (ejemplo, <code>kisu = a b</code>).</li>
+            </ol>
+
+            <hr>
+
+            <h4 id="uso-de-las-expresiones-en-condicionales">Uso de las expresiones en condicionales</h4>
+
+            <p>Al usarse estas expresiones en lugares muy concretos, definimos un mecanismo en la función que parsea las expresiones booleanas que consiste en lo siguiente. Cuando en la gramática encontramos un caso en el que debamos hacer un salto condicional, iniciamos el parseado de la misma (siguiendo la técnica de descenso recursivo) y al final del computado de la expresión añadimos la línea</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-function">qgen(<span class="hljs-string">"\tIF(R%d);"</span>,<span class="hljs-function">result_reg()</span>)</span>;</code></pre>
+
+            <p>Ejemplo del funcionamiento:</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs java"><span class="hljs-javadoc">/** fichero fuente .rji **/</span>
+
+to &amp; &gt;= a <span class="hljs-number">18</span> &lt; a <span class="hljs-number">21</span> {
+    tsutaeru(<span class="hljs-string">"Go vote, but don't drink"</span>)
+}
+
+<span class="hljs-javadoc">/** fichero objeto .rji.q.c **/</span>
+
+    R0 = I(R6-<span class="hljs-number">8</span>);    <span class="hljs-comment">// toma del primer operando</span>
+    R1 = <span class="hljs-number">18</span>;         <span class="hljs-comment">// toma del segundo operando</span>
+    R0 = R0 &gt;= R1;   <span class="hljs-comment">// guardado de la operación (y toma del primer operando)</span>
+    R1 = I(R6-<span class="hljs-number">8</span>);    <span class="hljs-comment">// toma del primer operando</span>
+    R2 = <span class="hljs-number">21</span>;         <span class="hljs-comment">// toma del segundo operando</span>
+    R1 = R1 &lt; R2;    <span class="hljs-comment">// guardado de la operación (y toma del segundo operando)</span>
+    R0 = R0 &amp;&amp; R1;   <span class="hljs-comment">// guardado de la operación</span>
+    IF(R0)           <span class="hljs-comment">// checkeo del valor de la condición</span>
+    GT(<span class="hljs-number">2</span>);           <span class="hljs-comment">// dirección de salto en caso de ser cierta</span>
+    GT(<span class="hljs-number">3</span>);           <span class="hljs-comment">// dirección de salto en caso de no serlo</span></code></pre>
+
+            <h2 id="impresión">Impresión</h2>
+
+            <p>La impresión es un caso especial de llamada en Romaji, diferenciándose en que puede tomar literales de todo tipo además de variables. El esquema para generar llamadas a la pasarela de impresión de Qlib es el siguiente.</p>
+
+            <ul>
+                <li>Se guardan los registros en la pila.</li>
+                <li>Por cada parámetro parseado, se toma o bien su valor (en caso de variables enteras) y se guarda en el registro adecuado o bien se crea una cadena estática que es impresa con los valores percibidos.</li>
+                <li>Se guarda la dirección de la ristra en la que se imprimió el valor o la ristra de formato en el registro adecuado.</li>
+                <li>Se llama a la función <code>putf_</code> de la librería Q.</li>
+                <li>Se llama a una función añadida a la librería Q, <code>putnl_</code> una vez termiando el trabajo con los parámetros.</li>
+            </ul>
+
+            <p>Ejemplo:</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs java"><span class="hljs-javadoc">/** fichero fuente .rji **/</span>
+
+tsutaeru(<span class="hljs-string">"print this number: "</span> <span class="hljs-number">12</span> <span class="hljs-string">"\nand this variable: "</span> a)
+
+<span class="hljs-javadoc">/** fichero objeto .rji.q.c **/</span>
+
+STAT(<span class="hljs-number">1</span>)
+        STR(<span class="hljs-number">0x11ff4</span>,<span class="hljs-string">"print this number: "</span>);
+CODE(<span class="hljs-number">1</span>)
+        R1 = <span class="hljs-number">0x11ff4</span>;
+        R0 = <span class="hljs-number">2</span>;
+        GT(putf_);
+L <span class="hljs-number">2</span>:
+        R2 = <span class="hljs-number">12</span>;
+        R1 = <span class="hljs-number">0x11ffb</span>;   <span class="hljs-comment">// predeclared format string</span>
+        R0 = <span class="hljs-number">3</span>;
+        GT(putf_);
+L <span class="hljs-number">3</span>:    
+STAT(<span class="hljs-number">2</span>)
+        STR(<span class="hljs-number">0x11d7a</span>,<span class="hljs-string">"\nand this variable: "</span>); <span class="hljs-comment">// valor ejemplo</span>
+CODE(<span class="hljs-number">2</span>) 
+        R1 = <span class="hljs-number">0x11d7a</span>;
+        R0 = <span class="hljs-number">4</span>;
+        GT(putf_);
+L <span class="hljs-number">4</span>:
+        R0 = I(R6-<span class="hljs-number">12</span>);
+        R2 = R1;
+        R1 = <span class="hljs-number">0x11ffb</span>;   <span class="hljs-comment">// predeclared format string</span>
+        R0 = <span class="hljs-number">5</span>;
+        GT(putf_);
+L <span class="hljs-number">5</span>:
+        R0 = <span class="hljs-number">6</span>;
+        GT(putnl_);
+L <span class="hljs-number">6</span>:</code></pre>
+        </div>
+    </body>
+</html>

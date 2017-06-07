@@ -1,0 +1,22 @@
+@media (min-width: 0px) {
+#wmd-input {
+   font-size: 16px;
+}
+#preview-contents {
+   font-size: 16px;
+}
+}@media (min-width: 600px) {
+#wmd-input {
+   font-size: 17px;
+}
+#preview-contents {
+   font-size: 17px;
+}
+}@media (min-width: 1200px) {
+#wmd-input {
+   font-size: 18px;
+}
+#preview-contents {
+   font-size: 18px;
+}
+}
