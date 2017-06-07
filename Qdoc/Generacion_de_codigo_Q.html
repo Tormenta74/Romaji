@@ -3,7 +3,6 @@
     <head>
         <meta charset="UTF-8">
         <title>Generación de código Q</title>
-        <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet"> 
         <link rel="stylesheet" href="css/default.css">
         <link rel="stylesheet" href="css/1.css">
         <link rel="stylesheet" href="css/2.css">
@@ -19,12 +18,14 @@
         <link rel="stylesheet" href="css/12.css">
     </head>
     <body>
-        <div style="padding:100px;">
+        <div style="padding:150px;">
             <h1 id="generación-de-código-q">Generación de código Q</h1>
 
 
 
             <h4 id="diego-sáinz-de-medrano">Diego Sáinz de Medrano</h4>
+
+
 
             <h2 id="introducción">Introducción</h2>
 
@@ -35,6 +36,8 @@
             <h2 id="inicialización-y-técnicas-de-impresión">Inicialización y técnicas de impresión</h2>
 
             <p>Para generar código Q, abriremos un fichero con el mismo nombre que el fichero fuente más la extensión <code>.q.c</code> en el que escribiremos las cabeceras que se requieren para compatibilidad con la máquina Q:</p>
+
+
 
             <pre class="prettyprint"><code class="language-C hljs ruleslanguage"><span class="hljs-array">#include </span><span class="hljs-string">"Q.h"</span>
 BEGIN</code></pre>
@@ -99,6 +102,33 @@ CODE(<span class="hljs-number">0</span>)</code></pre>
 <span class="hljs-comment">// acceso</span>
 <span class="hljs-function">qgen(<span class="hljs-string">"\tR0 = I(R6 - %d);"</span>,address)</span>;</code></pre>
 
+
+
+            <h2 id="definición-de-funciones">Definición de funciones</h2>
+
+            <p>Con el fin de no sobrecargar la funcionalidad de la tabla de símbolos así como para no interrelacionar aún más los diferentes módulos del programa, se ha implementado un mecanismo de seguimiento de las funciones que nos permite saber cuando empieza cada una dentro del código.</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-value">char</span> *function_space<span class="hljs-attr_selector">[64]</span>;       <span class="hljs-comment">// vector de direcciones a cadenas</span></code></pre>
+
+            <p>Cuando percibamos el inicio de la definición de una función, además de procesar toda su información sintáctica (identificador, tipo de retorno, número y tipo de argumentos), escribiremos una etiqueta única en el fichero fuente asociada a la cadena del identificador, simulando el funcionamiento de un hash map.</p>
+
+            <pre class="prettyprint"><code class="language-C hljs cpp"><span class="hljs-keyword">void</span> qgen_tag(<span class="hljs-keyword">char</span> *fname) {
+    function_space[current_tag] = strdup(fname);
+    qgen(<span class="hljs-string">"L %d\t\t// kansu %s"</span>,
+        current_tag++,fname);
+}
+
+<span class="hljs-keyword">void</span> qgen_jmp(<span class="hljs-keyword">char</span> *fname) {
+    <span class="hljs-keyword">unsigned</span> <span class="hljs-keyword">int</span> tag;
+    <span class="hljs-keyword">for</span>(<span class="hljs-keyword">int</span> i=<span class="hljs-number">0</span>; i&lt;<span class="hljs-number">64</span>; i++) {
+        <span class="hljs-keyword">if</span>(<span class="hljs-built_in">strcmp</span>(function_space[i],fname) == <span class="hljs-number">0</span>) {
+            qgen(<span class="hljs-string">"\tGT(%d);"</span>,i);
+            <span class="hljs-keyword">return</span>;
+        }
+    }</code></pre>
+
             <h2 id="llamadas-a-funciones">Llamadas a funciones</h2>
 
             <p>Para manejar las funciones en Romaji se ha hecho un uso intensivo de la pila de la máquina Q. Por cada llamada a una función se realizan las siguientes tareas:</p>
@@ -136,11 +166,69 @@ CODE(<span class="hljs-number">0</span>)</code></pre>
 
             <p>Al terminar esta operación, la pila queda restaurada a su estado inmediatamente anterior a la llamada, dado que por cada reserva de memoria de pila se ha liberado la misma.</p>
 
+
+
             <h2 id="uso-de-parámetros-por-referencia">Uso de parámetros por referencia</h2>
 
+            <p>Se ha redefinido la gramática de Romaji para que las funciones tomen únicamente variables como parámetros, de forma que cuando se hace uso de ellas dentro de las funciones siempre se haga por referencia, es decir, si se realizan cambios sobre ellas, los cambios se realizarán en la zona de memoria donde están almacenadas.</p>
 
+
+
+            <h4 id="paso-de-parámetros">Paso de parámetros</h4>
+
+            <p>Se realizará vía pila.</p>
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-function">qgen(<span class="hljs-string">"\tR7 = R7 - 4;"</span>)</span>;            <span class="hljs-comment">// take stack</span>
+<span class="hljs-function">qgen(<span class="hljs-string">"\tP(R7) = %d;"</span>, address)</span>;    <span class="hljs-comment">// save address</span></code></pre>
+
+            <p>Donde la dirección es una referencia absoluta a una zona de la pila, es decir, cuando tomemos dicha dirección, podremos acceder directamente con ella a la pila:</p>
+
+
+
+            <pre class="prettyprint"><code class="language-C hljs scss"><span class="hljs-function">qgen(<span class="hljs-string">"\tR0 = %d + 4;"</span>, param_pos)</span>;
+<span class="hljs-function">qgen(<span class="hljs-string">"\tR0 = R0 + R6;"</span>)</span>;
+<span class="hljs-function">qgen(<span class="hljs-string">"\tR0 = P(R6);"</span>)</span>;  <span class="hljs-comment">// content of param, that is, address</span>
+
+<span class="hljs-function">qgen(<span class="hljs-string">"\tRR0 = D(R0);"</span>)</span>; <span class="hljs-comment">// access directly</span>
+
+<span class="hljs-function">qgen(<span class="hljs-string">"\tD(R0) = RR3;"</span>)</span>; <span class="hljs-comment">// access directly</span></code></pre>
 
             <h2 id="manejo-de-registros">Manejo de registros</h2>
+
+            <p>Para tener flexibilidad en el uso de expresiones, el compilador manejará dinámicamente el uso de los registros de la máquina Q. Para ello se hace uso de una estructura accesible desde todas las funciones del compilador en la que se indican los registros que están en uso en cualquier momento dado, y se provee con una interfaz para solicitar registros (una para los de 32 y otra para los de 64) y liberarlos cuando se haya completado su uso.</p>
+
+            <pre class="prettyprint"><code class="language-C hljs java"><span class="hljs-javadoc">/** include/codegen.h **/</span>
+
+<span class="hljs-keyword">int</span> get_32_reg();
+<span class="hljs-keyword">int</span> get_64_reg();
+<span class="hljs-keyword">void</span> free_32_reg(<span class="hljs-keyword">int</span> reg);
+<span class="hljs-keyword">void</span> free_64_reg(<span class="hljs-keyword">int</span> reg);
+<span class="hljs-keyword">void</span> free_reg(<span class="hljs-keyword">int</span> type, <span class="hljs-keyword">int</span> reg);</code></pre>
+
+            <p>Además, se provee un mecanismo para que el compilador conozca los registros importantes para una determinada operación, es decir, que en cualquier momento en un árbol de llamadas dentro del analizador sintático-semántico no es necesario pasar la información de cual fue el registro en el que se guardó una información.</p>
+
+            <pre class="prettyprint"><code class="language-C hljs java"><span class="hljs-javadoc">/** codegen/codegen.c **/</span>
+
+<span class="hljs-keyword">int</span> last_fetched_32_reg,
+    last_fetched_64_reg;
+
+<span class="hljs-comment">// . . .</span>
+
+<span class="hljs-keyword">void</span> get_32_reg() {
+    <span class="hljs-keyword">int</span> i;
+    <span class="hljs-comment">// code to find the first free register</span>
+    last_fetched_32_reg = i;
+}
+
+<span class="hljs-comment">// . . .</span>
+
+<span class="hljs-keyword">int</span> result_reg(<span class="hljs-keyword">int</span> type) {
+    <span class="hljs-keyword">if</span>(type == FLOAT)
+        <span class="hljs-keyword">return</span> last_fetched_64_reg;
+    <span class="hljs-keyword">return</span> last_fetched_32_reg;
+}</code></pre>
+
+            <p>Con esta interfaz es posible tomar registros como sea necesario, y atómicamente realizar operaciones con ellos para después liberarlos. En el caso de expresiones, por ejemplo, se piden registros para almacenar los operandos, se guardan referencias a qué registros son, se guarda la operación sobre uno de ellos (reutilizando así los recursos limitados de la máquina) y se liberan los que ya no se utilicen.</p>
 
             <h2 id="expresiones">Expresiones</h2>
 
@@ -155,11 +243,15 @@ CODE(<span class="hljs-number">0</span>)</code></pre>
 
             <p>El código se parecería a esto:</p>
 
-            <pre class="prettyprint"><code class="language-C hljs r">qgen(<span class="hljs-string">"\tR%d = I(0x%x);"</span>,get_reg(),address);
-<span class="hljs-keyword">...</span>
-qgen(<span class="hljs-string">"\tR%d = %d;"</span>,get_reg(),value);
-<span class="hljs-keyword">...</span>
-qgen(<span class="hljs-string">"\tR%d = R%d %c R%d;"</span>,reg1, reg1, oper, reg2);</code></pre>
+
+
+            <pre class="prettyprint"><code class="language-C hljs perl">
+qgen(<span class="hljs-string">"\tR<span class="hljs-variable">%d</span> = I(0x<span class="hljs-variable">%x</span>);"</span>,get_32_reg(),address);
+
+qgen(<span class="hljs-string">"\tR<span class="hljs-variable">%d</span> = <span class="hljs-variable">%d</span>;"</span>,get_32_reg(),value);
+
+<span class="hljs-regexp">//</span> information known by the compiler
+qgen(<span class="hljs-string">"\tR<span class="hljs-variable">%d</span> = R<span class="hljs-variable">%d</span> <span class="hljs-variable">%c</span> R<span class="hljs-variable">%d</span>;"</span>,reg1, reg1, oper, reg2);</code></pre>
 
             <p>Las expresiones lógicas siguen un modelo parecido, con dos diferencias:</p>
 
@@ -200,6 +292,8 @@ to &amp; &gt;= a <span class="hljs-number">18</span> &lt; a <span class="hljs-nu
     IF(R0)           <span class="hljs-comment">// checkeo del valor de la condición</span>
     GT(<span class="hljs-number">2</span>);           <span class="hljs-comment">// dirección de salto en caso de ser cierta</span>
     GT(<span class="hljs-number">3</span>);           <span class="hljs-comment">// dirección de salto en caso de no serlo</span></code></pre>
+
+
 
             <h2 id="impresión">Impresión</h2>
 
