@@ -26,8 +26,7 @@ unsigned int qgen_str_lit(char *string);
 unsigned int qgen_declare_var(int type, int scope);
 
 unsigned int qgen_declare_str_var(int size, int scope);
-unsigned int qgen_declare_str_var(int size, char *string, int scope);
-unsigned int qgen_declare_str_var(char *string, int scope);
+unsigned int qgen_declare_str_var(char *string, int scope, int size);
 unsigned int qgen_declare_str_var_scan(int size, int scope);
 
 /** ------------------------------------- **/

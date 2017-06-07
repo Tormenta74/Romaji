@@ -1,15 +1,5 @@
-
-kansu f:seisu <-
-    seisu:x
-{
-    kisu + x 1
-}
-
 omo:kyo {
-    seisu a <- + 2 3
-    ++a
-    tsutaeru(a)
-    f(a)
-    tsutaeru(a)
+    mojiretsu s[] <- "literally a string"
+    tsutaeru(s)
     shi
 }

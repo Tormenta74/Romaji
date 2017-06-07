@@ -89,12 +89,12 @@ unsigned short type_length(int type) {
 
 void print_regs() {
     /*printf("32: |");
-    for(int i=0; i<6; i++)
-        printf("%d|",regs32[i]);
-    printf("\n64: |");
-    for(int i=0; i<4; i++)
-        printf("%d|",regs64[i]);
-    printf("\n\n");*/
+      for(int i=0; i<6; i++)
+      printf("%d|",regs32[i]);
+      printf("\n64: |");
+      for(int i=0; i<4; i++)
+      printf("%d|",regs64[i]);
+      printf("\n\n");*/
 }
 
 /*==============================================*/
@@ -241,74 +241,66 @@ unsigned int qgen_declare_str_var(int size, int scope) {
     char *filler;
     unsigned int addr;
 
+    filler = (char*)malloc(sizeof(char)*size);
+    for(int i=0; i<size; i++)
+        strcat(filler," ");
+
+    stat_address -= size;
+
+    qgen("STAT(%i)",current_statcode);
+    qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
+    qgen("CODE(%i)",current_statcode);
+
+    current_statcode ++;
+    addr = stat_address;
+
     if(scope == 0) {
+        // nothing to do
+    } else {
+        qgen_take_stack(4);
+        local_var_offset += 4;
+        qgen("\tP(R6-%d) = 0x%x;",
+                local_var_offset,addr);
+        addr = local_var_offset;
+    }
+
+    free(filler);
+
+    return addr;
+}
+
+unsigned int qgen_declare_str_var(char *string, int scope, int size=0) {
+    char *filler;
+    unsigned int addr;
+
+    if(size == 0) {
+        filler = strndup(string+1,strlen(string)-2);
+
+        addr = stat_address -= strlen(filler) + 1;
+    } else {
         filler = (char*)malloc(sizeof(char)*size);
-        for(int i=0; i<size; i++)
+
+        strncpy(filler,string+1,strlen(string)-2);
+        for(int i=0; i<(size-(int)strlen(string)); i++)
             strcat(filler," ");
 
         stat_address -= size;
-
-        qgen("STAT(%i)",current_statcode);
-        qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
-        qgen("CODE(%i)",current_statcode);
-
-        current_statcode ++;
-        addr = stat_address;
-    } else {
-        qgen_take_stack(size);
-        local_var_offset += size;
-        addr = local_var_offset;
     }
 
-    free(filler);
+    qgen("STAT(%i)",current_statcode);
+    qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
+    qgen("CODE(%i)",current_statcode);
 
-    return addr;
-}
-
-unsigned int qgen_str_var(char *string, int scope) {
-    char *filler = strndup(string+1,strlen(string)-2);
-    unsigned int addr;
+    current_statcode ++;
+    addr = stat_address;
 
     if(scope == 0) {
-        stat_address -= strlen(filler) + 1;
-
-        qgen("STAT(%i)",current_statcode);
-        qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
-        qgen("CODE(%i)",current_statcode);
-
-        current_statcode ++;
-        addr = stat_address;
+        // nothing to do
     } else {
-        qgen_take_stack(strlen(filler) + 1);
-        local_var_offset += strlen(filler) + 1;
-        addr = local_var_offset;
-    }
-
-    free(filler);
-
-    return addr;
-}
-
-unsigned int qgen_str_var(int size, char *string, int scope) {
-    char *filler = (char*)malloc(sizeof(char)*size);
-    unsigned int addr;
-
-    strncpy(filler,string+1,strlen(string)-2);
-    for(int i=0; i<(size-(int)strlen(string)); i++)
-        strcat(filler," ");
-
-    if(scope == 0) {
-        stat_address -= size;
-
-        qgen("STAT(%i)",current_statcode);
-        qgen("\tSTR(0x%x,\"%s\");",stat_address,filler);
-        qgen("CODE(%i)",current_statcode);
-
-        current_statcode ++;
-        addr = stat_address;
-    } else {
-        qgen_take_stack(size);
-        local_var_offset += size;
+        qgen_take_stack(4);
+        local_var_offset += 4;
+        qgen("\tP(R6-%d) = 0x%x;",
+                local_var_offset,addr);
         addr = local_var_offset;
     }
 
@@ -547,7 +539,7 @@ void qgen_get_vararg(int type, int arg_or_var, unsigned int addr, int scope) {
             qgen("\tR%d = P(R%d);",     // content of arg (which is address)
                     regaddr,regaddr);
             //qgen("\tR%d = R%d + R6;",   // absolute address
-                    //regaddr,regaddr);
+            //regaddr,regaddr);
             if(type == FLOAT) {
                 reg = get_64_reg();
                 qgen("\tRR%d = D(R%d);",

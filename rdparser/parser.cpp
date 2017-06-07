@@ -265,7 +265,6 @@ int program() {
  *      {type} ID ("<-" nexp)?
  */
 int declaration() {
-    // TODO: draw a nice grammar graph for this
     int expected_type, parsed_type, current_scope = table->get_scope();
     unsigned int addr = 0, string_size = 0;
     char *name;
@@ -330,7 +329,7 @@ int declaration() {
                 return PARSE_ERR;
             }
 
-            // TODO: qgen - str literal assignment
+            addr = qgen_declare_str_var(next.text,current_scope,string_size);
 
             shift();
 
@@ -365,6 +364,11 @@ int declaration() {
             // already shifted in nexp()
         }
     } // case "<-" dealt with
+    else {
+        if(expected_type == STRING) {
+            addr = qgen_declare_str_var(string_size,current_scope);
+        }
+    }
 
     try {
         table->store_symbol(VAR_T, expected_type, addr, name);
